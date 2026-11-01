@@ -1,0 +1,7 @@
+# Production overrides of base.toml, read on Cloud Run, where Terraform sets APP_ENV=production.
+# List only the keys whose production value differs from base.toml.
+
+# Uncomment once the service exists (README "Deployment on GCP", Step 7): the canonical public
+# URL, trailing slash included. Until then production keeps base.toml's loopback redirect URI.
+# [spotify]
+# redirect_uri = "https://<your-cloud-run-url>/"

@@ -1,8 +1,8 @@
 """Dev-only Spotify de-risking spike: `python -m scripts.spotify_spike`.
 
 Proves that the real Development Mode app can search the catalog and create a private
-playlist for an allowlisted account before any UI is built. Standalone (httpx and
-python-dotenv only, no `src/` imports) and excluded from the Docker image. Prints one
+playlist for an allowlisted account before any UI is built. Standalone (httpx,
+python-dotenv and tomllib only, no `src/` imports) and excluded from the Docker image. Prints one
 PASS/FAIL line per step and exits non-zero on the first failure; tokens and the client
 secret are never printed.
 """
@@ -10,6 +10,8 @@ secret are never printed.
 import os
 import secrets
 import sys
+import tomllib
+from pathlib import Path
 
 import httpx
 from dotenv import load_dotenv
@@ -17,6 +19,7 @@ from dotenv import load_dotenv
 from scripts.spike_helpers import SpikeError, authorize_user, expect, token
 
 API_URL = "https://api.spotify.com/v1"  # Web API base URL
+CONFIG_FILE = Path(__file__).resolve().parents[1] / "config" / "base.toml"  # Non-secret settings
 TIMEOUT_S = 15.0  # Per-request timeout in seconds
 SEARCH_QUERY = 'track:"Animals" artist:"Martin Garrix"'  # Known mainstream track
 FORBIDDEN_CHECKLIST = """Checklist for a 403 on playlist creation:
@@ -32,7 +35,7 @@ def search_step(http: httpx.Client, env: dict[str, str]) -> str:
 
     Args:
         http: HTTP client.
-        env: Spotify variables from `.env`.
+        env: Spotify settings (the secret from `.env`, the rest from config/base.toml).
 
     Returns:
         URI of the first search result.
@@ -86,7 +89,7 @@ def run_spike(http: httpx.Client, env: dict[str, str]) -> None:
 
     Args:
         http: HTTP client.
-        env: Spotify variables from `.env`.
+        env: Spotify settings (the secret from `.env`, the rest from config/base.toml).
     """
     uri = search_step(http, env)
     headers = {"Authorization": f"Bearer {authorize_user(http, env)}"}
@@ -98,18 +101,23 @@ def run_spike(http: httpx.Client, env: dict[str, str]) -> None:
 
 
 def main() -> int:
-    """Load `.env`, run the spike and print the outcome.
+    """Load the Spotify settings, run the spike and print the outcome.
 
     Returns:
         Process exit code: 0 when steps 1-6 pass, 1 otherwise.
     """
     load_dotenv()
-    names = ("SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI")
-    env = {name: os.getenv(name, "").strip() for name in names}
-    env["SPOTIFY_MARKET"] = os.getenv("SPOTIFY_MARKET", "").strip() or "IT"
-    missing = [name for name in names if not env[name]]
+    with CONFIG_FILE.open("rb") as file:
+        spotify = tomllib.load(file).get("spotify", {})
+    env = {
+        "SPOTIFY_CLIENT_ID": str(spotify.get("client_id", "")).strip(),
+        "SPOTIFY_CLIENT_SECRET": os.getenv("SPOTIFY_CLIENT_SECRET", "").strip(),
+        "SPOTIFY_REDIRECT_URI": str(spotify.get("redirect_uri", "")).strip(),
+        "SPOTIFY_MARKET": str(spotify.get("market", "")).strip() or "IT",
+    }
+    missing = [name for name, value in env.items() if not value]
     if missing:
-        print(f"FAIL 0 environment: missing {', '.join(missing)} in .env")
+        print(f"FAIL 0 settings: missing {', '.join(missing)} (.env or config/base.toml)")
         return 1
     try:
         with httpx.Client(timeout=TIMEOUT_S) as http:

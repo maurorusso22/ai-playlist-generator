@@ -10,7 +10,8 @@ from urllib.parse import urlencode
 
 from pydantic import SecretStr
 
-from src.config import SPOTIFY_SCOPE, get_settings
+from src.config.constants import SPOTIFY_SCOPE
+from src.config.settings import get_settings
 from src.schema import SpotifyTokens
 from src.spotify.app_token import get_app_token, post_token
 from src.spotify.errors import SpotifyReauthRequired
@@ -73,11 +74,11 @@ def build_authorize_url(state: str) -> str:
     Returns:
         The full https://accounts.spotify.com/authorize URL.
     """
-    settings = get_settings()
+    spotify = get_settings().spotify
     params = {
-        "client_id": settings.spotify_client_id,
+        "client_id": spotify.client_id,
         "response_type": "code",
-        "redirect_uri": settings.spotify_redirect_uri,
+        "redirect_uri": spotify.redirect_uri,
         "scope": SPOTIFY_SCOPE,
         "state": state,
     }
@@ -93,7 +94,7 @@ def exchange_code(code: str) -> SpotifyTokens:
     Returns:
         The user's tokens with their expiry.
     """
-    redirect_uri = get_settings().spotify_redirect_uri
+    redirect_uri = get_settings().spotify.redirect_uri
     payload = post_token(
         {"grant_type": "authorization_code", "code": code, "redirect_uri": redirect_uri}
     )

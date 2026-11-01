@@ -6,11 +6,12 @@ import pytest
 from pytest_mock import MockerFixture
 
 from src import rate_limiter
-from src.config import get_settings
+from src.config.files import Sections
+from src.config.settings import get_settings
 from src.rate_limiter import get_client_ip, is_rate_limited
 
-LIMIT = 12  # RATE_LIMIT_MAX_REQUESTS default
-WINDOW = 60.0  # RATE_LIMIT_WINDOW default, in seconds
+LIMIT = 12  # rate_limit.max_requests in config/base.toml
+WINDOW = 60.0  # rate_limit.window in config/base.toml, in seconds
 
 
 @pytest.fixture(autouse=True)
@@ -107,10 +108,9 @@ def test_idle_ip_entry_expires(clock: list[float]) -> None:
     assert "10.0.0.1" not in rate_limiter._request_log()
 
 
-def test_window_and_limit_come_from_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_window_and_limit_come_from_settings(config: Sections) -> None:
     """The limit and the window come from the settings."""
-    monkeypatch.setenv("RATE_LIMIT_MAX_REQUESTS", "2")
-    monkeypatch.setenv("RATE_LIMIT_WINDOW", "5")
+    config["rate_limit"] |= {"max_requests": 2, "window": 5}
     get_settings.cache_clear()
     assert [is_rate_limited("9.9.9.9") for _ in range(3)] == [False, False, True]
     assert rate_limiter._request_log().ttl == 5

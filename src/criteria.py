@@ -8,7 +8,8 @@ size is always clamped to the configured bounds, whatever the LLM returns.
 import math
 import unicodedata
 
-from src.config import OVERGENERATION_RATIO, PLAYLIST_HARD_MAX_SIZE, PLAYLIST_MIN_SIZE, get_settings
+from src.config.constants import OVERGENERATION_RATIO, PLAYLIST_HARD_MAX_SIZE, PLAYLIST_MIN_SIZE
+from src.config.settings import get_settings
 from src.prompt import CLARIFICATION_FALLBACK
 from src.schema import AssistantTurn, PlaylistCriteria, PlaylistDraft
 
@@ -30,9 +31,9 @@ def has_minimum_criteria(criteria: PlaylistCriteria) -> bool:
 
 
 def clamp_size(requested: int | None) -> int:
-    """Clamp a requested playlist size to [PLAYLIST_MIN_SIZE, PLAYLIST_MAX_SIZE].
+    """Clamp a requested playlist size to [PLAYLIST_MIN_SIZE, playlist.max_size].
 
-    `PLAYLIST_MAX_SIZE` may lower the cap but never raise it above `PLAYLIST_HARD_MAX_SIZE`.
+    `playlist.max_size` may lower the cap but never raise it above `PLAYLIST_HARD_MAX_SIZE`.
 
     Args:
         requested: Size the user asked for, or None when they gave no number.
@@ -42,8 +43,8 @@ def clamp_size(requested: int | None) -> int:
     """
     settings = get_settings()
     if requested is None:
-        return settings.playlist_default_size
-    upper = min(settings.playlist_max_size, PLAYLIST_HARD_MAX_SIZE)
+        return settings.playlist.default_size
+    upper = min(settings.playlist.max_size, PLAYLIST_HARD_MAX_SIZE)
     return max(PLAYLIST_MIN_SIZE, min(requested, upper))
 
 

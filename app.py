@@ -12,7 +12,7 @@ import streamlit as st
 from google.api_core.exceptions import GoogleAPIError
 
 from src import browser_session, session_store
-from src.config import get_settings
+from src.config.settings import get_settings
 from src.ui import chat, errors, landing, login, oauth_callback, styles
 from src.ui import state as ui_state
 
@@ -70,7 +70,7 @@ def bootstrap(ready: bool, session_id: str | None) -> str:
 
 def render_expired() -> None:
     """Expired screen: a notice and only a New chat button (FR-13)."""
-    minutes = get_settings().session_ttl_minutes
+    minutes = get_settings().sessions.ttl_minutes
     st.info(f"This chat expired after {minutes} minutes of inactivity and was deleted.")
     st.button("New chat", key="expired_new_chat", on_click=ui_state.start_new_chat)
 

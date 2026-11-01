@@ -5,7 +5,8 @@ from datetime import UTC, datetime
 import pytest
 from cryptography.fernet import Fernet
 
-from src.config import ConfigError, get_settings
+from src.config.errors import ConfigError
+from src.config.secrets import get_secrets
 from src.crypto import decrypt_tokens, encrypt_tokens
 from src.schema import SpotifyTokens
 
@@ -30,14 +31,14 @@ def tokens() -> SpotifyTokens:
 
 
 def _use_key(monkeypatch: pytest.MonkeyPatch, key: str) -> None:
-    """Switch SESSION_ENCRYPTION_KEY and drop the cached settings.
+    """Switch SESSION_ENCRYPTION_KEY and drop the cached secrets.
 
     Args:
         monkeypatch: Pytest fixture used to patch the environment.
         key: The new key value.
     """
     monkeypatch.setenv("SESSION_ENCRYPTION_KEY", key)
-    get_settings.cache_clear()
+    get_secrets.cache_clear()
 
 
 def test_round_trip_returns_equal_tokens(tokens: SpotifyTokens) -> None:

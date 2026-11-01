@@ -1,0 +1,29 @@
+# Non-secret application settings, with the values for local development.
+# Secrets never go here: they live in .env locally and in Secret Manager on Cloud Run.
+# config/<APP_ENV>.toml, when present, overrides single keys of this file.
+
+[gcp]
+project_id = ""  # GCP project hosting Firestore (`terraform -chdir=terraform output project_id`)
+
+[sessions]
+collection = "sessions"  # Firestore collection of chat sessions (TTL policy on `expires_at`)
+ttl_minutes = 60  # Session lifetime after the last message (use 2 to test expiry locally)
+
+[llm]
+model = "gemini-3.5-flash-lite"  # Gemini model id of the conversation engine
+
+[intent_gate]
+model = "gemma-4-26b-a4b-it"  # Gemma model id of the fail-open out-of-scope filter
+
+[spotify]
+client_id = ""  # Spotify app Client ID (public by design; the Client Secret goes in .env)
+redirect_uri = "http://127.0.0.1:8501/"  # Registered exactly in the Dashboard; never localhost
+market = "IT"  # ISO 3166-1 alpha-2 country code for catalog search
+
+[playlist]
+default_size = 16  # Tracks when the user doesn't specify a size
+max_size = 30  # Upper bound on playlist size: can be lowered, never raised above 30
+
+[rate_limit]
+max_requests = 12  # Maximum chat messages per IP in any window (sliding window)
+window = 60  # Rate-limit window in seconds

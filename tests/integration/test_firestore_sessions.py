@@ -1,7 +1,8 @@
 """Live Firestore session lifecycle against the throwaway `sessions_test` collection.
 
-Requires a populated `.env` (all required variables) and Application Default Credentials
-(`gcloud auth application-default login`). Created documents are deleted in teardown.
+Requires a complete `config/base.toml` and Application Default Credentials
+(`gcloud auth application-default login`); no secret is needed. Created documents are
+deleted in teardown.
 """
 
 import os
@@ -10,10 +11,11 @@ from datetime import timedelta
 from pathlib import Path
 
 import pytest
-from dotenv import load_dotenv
 
 from src import session_store
-from src.config import REQUIRED_VARS, get_settings
+from src.config.errors import ConfigError
+from src.config.files import load_config
+from src.config.settings import get_settings
 from src.schema import ChatMessage
 
 TEST_COLLECTION = "sessions_test"  # Collection used instead of the real one
@@ -31,11 +33,8 @@ def _adc_available() -> bool:
     return (config_dir / "application_default_credentials.json").is_file()
 
 
-load_dotenv()
-
 pytestmark = pytest.mark.skipif(
-    not all(os.getenv(name) for name in REQUIRED_VARS) or not _adc_available(),
-    reason="Requires a populated .env and Application Default Credentials",
+    not _adc_available(), reason="Requires Application Default Credentials"
 )
 
 
@@ -43,14 +42,22 @@ pytestmark = pytest.mark.skipif(
 def created(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
     """Point the store at the test collection and delete created sessions afterwards.
 
+    Skips the test when `config/base.toml` is incomplete (e.g. a blank `gcp.project_id`).
+
     Args:
-        monkeypatch: Pytest fixture used to patch the environment.
+        monkeypatch: Pytest fixture used to patch the configuration loader.
 
     Returns:
         A list the tests append created session ids to.
     """
-    monkeypatch.setenv("SESSIONS_COLLECTION", TEST_COLLECTION)
+    sections = load_config()
+    sections["sessions"]["collection"] = TEST_COLLECTION
+    monkeypatch.setattr("src.config.settings.load_config", lambda *_: sections)
     get_settings.cache_clear()
+    try:
+        get_settings()
+    except ConfigError as exc:
+        pytest.skip(f"Firestore tests require a complete config/base.toml: {exc}")
     session_store._client.cache_clear()
     ids: list[str] = []
     yield ids
@@ -79,7 +86,7 @@ def test_expired_session_is_deleted_on_read(
     state = session_store.create_session("guest")
     created.append(state.session_id)
     real_now = session_store._now()
-    ttl = timedelta(minutes=get_settings().session_ttl_minutes)
+    ttl = timedelta(minutes=get_settings().sessions.ttl_minutes)
     monkeypatch.setattr(session_store, "_now", lambda: real_now - ttl - timedelta(minutes=1))
     session_store.touch(state)
     monkeypatch.setattr(session_store, "_now", lambda: real_now)

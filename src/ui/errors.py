@@ -10,7 +10,7 @@ import re
 from google.genai.errors import ClientError, ServerError
 
 from src.chain import AssistantUnavailableError
-from src.config import get_settings
+from src.config.settings import get_settings
 from src.spotify.errors import (
     SpotifyAuthError,
     SpotifyError,
@@ -77,7 +77,7 @@ def assistant_error_message(exc: Exception) -> str:
         _logger.warning("Gemini quota exhausted: %s (details: %s)", exc.message, exc.details)
         return DAILY_QUOTA
     if isinstance(exc, ClientError) and exc.code == 404:
-        _logger.error("Gemini model not found: %s (%s)", get_settings().llm_model, exc.message)
+        _logger.error("Gemini model not found: %s (%s)", get_settings().llm.model, exc.message)
         return MISCONFIGURED
     if isinstance(exc, ServerError | AssistantUnavailableError):
         _logger.error("Assistant unavailable: %s", exc)

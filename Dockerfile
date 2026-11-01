@@ -25,6 +25,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Application source only: scripts/ (the dev-only Spotify spike) is deliberately left out.
 COPY src/ ./src/
+COPY config/ ./config/
 COPY public/ ./public/
 COPY .streamlit/ ./.streamlit/
 COPY app.py .

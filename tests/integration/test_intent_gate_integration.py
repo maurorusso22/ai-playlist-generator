@@ -1,7 +1,7 @@
 """Live Gemma tests for the intent gate: clear off-topic is blocked, music always passes.
 
-Requires a populated `.env` (the settings need all six required variables) and calls the
-real Gemini API with the Gemma model, so the module is skipped when `GOOGLE_API_KEY` or the
+Requires the secrets in `.env` and a complete `config/base.toml`, and calls the real
+Gemini API with the Gemma model, so the module is skipped when `GOOGLE_API_KEY` or the
 settings are missing:
 
     pytest tests/integration/test_intent_gate_integration.py
@@ -16,7 +16,9 @@ import pytest
 from dotenv import load_dotenv
 
 from src import intent_gate
-from src.config import ConfigError, get_settings
+from src.config.errors import ConfigError
+from src.config.secrets import get_secrets
+from src.config.settings import get_settings
 from src.schema import ChatMessage
 
 load_dotenv()
@@ -36,19 +38,22 @@ _logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope="module", autouse=True)
 def live_settings() -> Iterator[None]:
-    """Skip the module when the settings cannot be loaded from the environment.
+    """Skip the module when the secrets or the settings cannot be loaded.
 
     Returns:
         Nothing; yields once the settings are valid and clears the caches afterwards.
     """
     get_settings.cache_clear()
+    get_secrets.cache_clear()
     intent_gate._build_gate.cache_clear()
     try:
         get_settings()
+        get_secrets()
     except ConfigError as exc:
-        pytest.skip(f"Live Gemma tests require a complete .env: {exc}")
+        pytest.skip(f"Live Gemma tests require .env and config/base.toml: {exc}")
     yield
     get_settings.cache_clear()
+    get_secrets.cache_clear()
     intent_gate._build_gate.cache_clear()
 
 

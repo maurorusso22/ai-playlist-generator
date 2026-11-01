@@ -7,7 +7,8 @@ testable without any client.
 from datetime import datetime, timedelta
 from typing import Any
 
-from src.config import MAX_STORED_MESSAGES, get_settings
+from src.config.constants import MAX_STORED_MESSAGES
+from src.config.settings import get_settings
 from src.schema import ChatMessage, PendingAction, SessionState
 
 IMMUTABLE_FIELDS = frozenset({"session_id", "created_at"})  # Never rewritten by update()
@@ -18,7 +19,7 @@ MUTABLE_FIELDS = (  # Fields callers may change through save_turn()/touch()
 
 
 def expiry(now: datetime) -> datetime:
-    """Compute the sliding expiry: `now` plus SESSION_TTL_MINUTES.
+    """Compute the sliding expiry: `now` plus `sessions.ttl_minutes`.
 
     Args:
         now: Time of the latest activity (a message or a confirmation click).
@@ -26,7 +27,7 @@ def expiry(now: datetime) -> datetime:
     Returns:
         The new `expires_at`.
     """
-    return now + timedelta(minutes=get_settings().session_ttl_minutes)
+    return now + timedelta(minutes=get_settings().sessions.ttl_minutes)
 
 
 def _shift(index: int | None, dropped: int) -> int | None:

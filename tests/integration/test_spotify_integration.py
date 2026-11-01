@@ -1,6 +1,6 @@
 """Live Spotify integration tests: Client Credentials token, search and resolution rate.
 
-Requires a populated `.env` (all required variables, including the Spotify app credentials).
+Requires `SPOTIFY_CLIENT_SECRET` in `.env` and the `[spotify]` section of `config/base.toml`.
 Playlist creation needs a user login and is covered by `python -m scripts.spotify_spike`.
 Run with:
 
@@ -9,11 +9,14 @@ Run with:
 
 import os
 import time
+from collections.abc import Iterator
 
 import pytest
 from dotenv import load_dotenv
 
-from src.config import REQUIRED_VARS, get_settings
+from src.config.errors import ConfigError
+from src.config.secrets import get_secrets
+from src.config.settings import get_settings
 from src.schema import TrackSuggestion
 from src.spotify import auth
 from src.spotify.client import SpotifyClient
@@ -22,8 +25,8 @@ from src.spotify.resolver import resolve_tracks
 load_dotenv()
 
 pytestmark = pytest.mark.skipif(
-    any(not os.getenv(name) for name in REQUIRED_VARS),
-    reason="Spotify integration tests require every required variable in .env",
+    not os.getenv("SPOTIFY_CLIENT_SECRET"),
+    reason="Spotify integration tests require SPOTIFY_CLIENT_SECRET in .env",
 )
 
 NFR02_BUDGET_S = 10.0  # NFR-02: generation plus resolution of a 16-track playlist (P95)
@@ -48,12 +51,31 @@ HOUSE_HITS = [  # 16 mainstream 2010s house hits, as an LLM would suggest them
 ]
 
 
+@pytest.fixture(scope="module", autouse=True)
+def live_settings() -> Iterator[None]:
+    """Skip the module when the secrets or the settings cannot be loaded.
+
+    Returns:
+        Nothing; yields once the settings are valid and clears the caches afterwards.
+    """
+    get_settings.cache_clear()
+    get_secrets.cache_clear()
+    try:
+        get_settings()
+        get_secrets()
+    except ConfigError as exc:
+        pytest.skip(f"Spotify integration tests require .env and config/base.toml: {exc}")
+    yield
+    get_settings.cache_clear()
+    get_secrets.cache_clear()
+
+
 def test_app_token_search_finds_martin_garrix() -> None:
     """The live app token searches the catalog and finds the Martin Garrix track."""
     client = SpotifyClient()
     try:
         items = client.search_tracks(
-            auth.get_app_token(), "Animals", "Martin Garrix", get_settings().spotify_market
+            auth.get_app_token(), "Animals", "Martin Garrix", get_settings().spotify.market
         )
     finally:
         client.close()

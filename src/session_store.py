@@ -12,7 +12,7 @@ from typing import Any, Literal
 from google.cloud import firestore
 from pydantic import ValidationError
 
-from src.config import get_settings
+from src.config.settings import get_settings
 from src.schema import ChatMessage, SessionState
 from src.session_merge import IMMUTABLE_FIELDS, expiry, merge_state
 
@@ -42,7 +42,7 @@ def _client(project: str) -> firestore.Client:
 
 
 def _document(session_id: str) -> Any:
-    """Reference a session document in SESSIONS_COLLECTION.
+    """Reference a session document in the `sessions.collection` collection.
 
     Args:
         session_id: The session's UUID4, also the document id.
@@ -51,7 +51,7 @@ def _document(session_id: str) -> Any:
         The Firestore DocumentReference.
     """
     settings = get_settings()
-    collection = _client(settings.gcp_project_id).collection(settings.sessions_collection)
+    collection = _client(settings.gcp.project_id).collection(settings.sessions.collection)
     return collection.document(session_id)
 
 

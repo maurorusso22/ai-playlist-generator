@@ -45,7 +45,7 @@ def token(http: httpx.Client, env: dict[str, str], data: dict[str, str], step: s
 
     Args:
         http: HTTP client.
-        env: Spotify variables from `.env`.
+        env: Spotify settings (the secret from `.env`, the rest from config/base.toml).
         data: Grant form fields.
         step: Step label used in the PASS/FAIL line.
 
@@ -64,7 +64,7 @@ def authorize_user(http: httpx.Client, env: dict[str, str]) -> str:
 
     Args:
         http: HTTP client.
-        env: Spotify variables from `.env`.
+        env: Spotify settings (the secret from `.env`, the rest from config/base.toml).
 
     Returns:
         The user's access token (kept in memory only).

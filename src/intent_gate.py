@@ -19,7 +19,8 @@ from functools import lru_cache
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from src.config import get_settings
+from src.config.secrets import get_secrets
+from src.config.settings import get_settings
 from src.schema import AssistantTurn, ChatMessage, PlaylistCriteria
 
 GATE_TIMEOUT_S = 3.0  # HTTP timeout, also sent as server deadline; past it Gemini answers
@@ -66,10 +67,9 @@ def _build_gate() -> ChatGoogleGenerativeAI:
     Returns:
         A chat model tuned for a fast, deterministic one-word answer.
     """
-    settings = get_settings()
     return ChatGoogleGenerativeAI(
-        model=settings.intent_model,
-        google_api_key=settings.google_api_key,
+        model=get_settings().intent_gate.model,
+        google_api_key=get_secrets().google_api_key,
         temperature=0,
         thinking_level="minimal",
         max_tokens=GATE_MAX_TOKENS,

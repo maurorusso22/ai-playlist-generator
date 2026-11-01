@@ -1,7 +1,7 @@
 """Per-IP sliding-window rate limiting of chat messages, kept in memory (FR-14).
 
-Each IP keeps the timestamps of its counted messages, so at most RATE_LIMIT_MAX_REQUESTS
-messages are allowed in any RATE_LIMIT_WINDOW seconds, with no burst at window boundaries.
+Each IP keeps the timestamps of its counted messages, so at most `rate_limit.max_requests`
+messages are allowed in any `rate_limit.window` seconds, with no burst at window boundaries.
 The log lives at module level, so it persists across Streamlit reruns and sessions of the
 same process; with Cloud Run `max-instances = 1` a single process serves all traffic, so no
 shared store is needed. It is created lazily because settings are never read at import time.
@@ -15,7 +15,7 @@ from functools import lru_cache
 import streamlit as st
 from cachetools import TTLCache
 
-from src.config import get_settings
+from src.config.settings import get_settings
 
 MAX_TRACKED_IPS = 10_000  # Distinct client IPs tracked at once; the oldest are evicted
 FALLBACK_IP = "127.0.0.1"  # Client IP assumed when no X-Forwarded-For header is present
@@ -34,7 +34,7 @@ def _request_log() -> TTLCache[str, deque[float]]:
         A TTL cache mapping client IP to the monotonic times of its counted messages.
     """
     return TTLCache(
-        maxsize=MAX_TRACKED_IPS, ttl=get_settings().rate_limit_window, timer=time.monotonic
+        maxsize=MAX_TRACKED_IPS, ttl=get_settings().rate_limit.window, timer=time.monotonic
     )
 
 
@@ -48,16 +48,16 @@ def is_rate_limited(ip: str) -> bool:
         ip: Client IP address.
 
     Returns:
-        True when `ip` already sent RATE_LIMIT_MAX_REQUESTS messages in the last window.
+        True when `ip` already sent `rate_limit.max_requests` messages in the last window.
     """
     settings = get_settings()
     with _lock:
         log = _request_log()
         now = time.monotonic()
         stamps = log.get(ip, deque())
-        while stamps and now - stamps[0] >= settings.rate_limit_window:
+        while stamps and now - stamps[0] >= settings.rate_limit.window:
             stamps.popleft()
-        if len(stamps) >= settings.rate_limit_max_requests:
+        if len(stamps) >= settings.rate_limit.max_requests:
             return True
         stamps.append(now)
         log[ip] = stamps  # Re-set so the entry expires one window after this message

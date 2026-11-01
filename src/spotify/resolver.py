@@ -11,7 +11,7 @@ from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import closing
 from typing import Any
 
-from src.config import get_settings
+from src.config.settings import get_settings
 from src.schema import ResolvedTrack, TrackSuggestion
 from src.spotify import auth
 from src.spotify.client import SpotifyBadRequestError, SpotifyClient
@@ -93,7 +93,7 @@ def resolve_tracks(
     Returns:
         Up to `size` found tracks plus flagged not-found entries, in suggestion order.
     """
-    market = get_settings().spotify_market
+    market = get_settings().spotify.market
     keys = [(normalize(s.title), normalize(s.artist), market) for s in suggestions]
     unique: dict[SearchKey, TrackSuggestion] = {}
     for key, suggestion in zip(keys, suggestions, strict=True):

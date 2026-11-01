@@ -16,7 +16,9 @@ from langchain_core.runnables import Runnable
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_google_genai.chat_models import ChatGoogleGenerativeAIError
 
-from src.config import OVERGENERATION_RATIO, PLAYLIST_HARD_MAX_SIZE, PLAYLIST_MIN_SIZE, get_settings
+from src.config.constants import OVERGENERATION_RATIO, PLAYLIST_HARD_MAX_SIZE, PLAYLIST_MIN_SIZE
+from src.config.secrets import get_secrets
+from src.config.settings import get_settings
 from src.criteria import apply_guard, candidate_count, clamp_size
 from src.prompt import SYSTEM_PROMPT, format_draft_context
 from src.schema import AssistantTurn, ChatMessage, PlaylistDraft
@@ -40,10 +42,9 @@ def _build_llm() -> Runnable[list[BaseMessage], object]:
     Returns:
         A runnable whose `invoke` returns a parsed `AssistantTurn`.
     """
-    settings = get_settings()
     llm = ChatGoogleGenerativeAI(
-        model=settings.llm_model,
-        google_api_key=settings.google_api_key,
+        model=get_settings().llm.model,
+        google_api_key=get_secrets().google_api_key,
         max_retries=LLM_MAX_RETRIES,
     )
     structured: Runnable[list[BaseMessage], object] = llm.with_structured_output(AssistantTurn)
@@ -60,7 +61,7 @@ def _system_prompt(draft: PlaylistDraft | None) -> str:
         The full system message text.
     """
     default_size = clamp_size(None)
-    max_size = clamp_size(PLAYLIST_HARD_MAX_SIZE)  # PLAYLIST_MAX_SIZE may lower the cap
+    max_size = clamp_size(PLAYLIST_HARD_MAX_SIZE)  # playlist.max_size may lower the cap
     rules = SYSTEM_PROMPT.format(
         min_size=PLAYLIST_MIN_SIZE,
         default_size=default_size,

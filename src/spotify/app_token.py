@@ -11,7 +11,8 @@ from typing import Any
 
 import httpx
 
-from src.config import get_settings
+from src.config.secrets import get_secrets
+from src.config.settings import get_settings
 from src.spotify.errors import INVALID_GRANT, SpotifyError, SpotifyReauthRequired
 from src.spotify.retry import REQUEST_TIMEOUT_S, send_with_retries
 
@@ -41,8 +42,7 @@ def post_token(data: dict[str, str]) -> dict[str, Any]:
     Returns:
         The JSON token response; a rejected grant raises SpotifyReauthRequired.
     """
-    settings = get_settings()
-    credentials = (settings.spotify_client_id, settings.spotify_client_secret)
+    credentials = (get_settings().spotify.client_id, get_secrets().spotify_client_secret)
     with httpx.Client(timeout=REQUEST_TIMEOUT_S) as http:
         try:
             response = send_with_retries(http, "POST", TOKEN_URL, data=data, auth=credentials)

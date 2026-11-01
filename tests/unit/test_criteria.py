@@ -4,7 +4,8 @@ from typing import Literal
 
 import pytest
 
-from src.config import get_settings
+from src.config.files import Sections
+from src.config.settings import get_settings
 from src.criteria import apply_guard, candidate_count, clamp_size, has_minimum_criteria
 from src.prompt import CLARIFICATION_FALLBACK
 from src.schema import AssistantTurn, PlaylistCriteria, PlaylistDraft, TrackSuggestion
@@ -73,9 +74,9 @@ def test_clamp_size(requested: int | None, expected: int) -> None:
     assert clamp_size(requested) == expected
 
 
-def test_clamp_size_honors_a_lower_configured_max(monkeypatch: pytest.MonkeyPatch) -> None:
-    """PLAYLIST_MAX_SIZE lowers the cap."""
-    monkeypatch.setenv("PLAYLIST_MAX_SIZE", "20")
+def test_clamp_size_honors_a_lower_configured_max(config: Sections) -> None:
+    """playlist.max_size lowers the cap."""
+    config["playlist"]["max_size"] = 20
     get_settings.cache_clear()
     assert clamp_size(45) == 20
 

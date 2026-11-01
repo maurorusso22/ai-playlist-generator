@@ -4,15 +4,16 @@ from datetime import timedelta
 
 import pytest
 
-from src.config import get_settings
+from src.config.files import Sections
+from src.config.settings import get_settings
 from src.schema import ChatMessage, PendingAction
 from src.session_merge import MUTABLE_FIELDS, expiry, merge_state
 from tests.unit.session_factory import NOW, make_state
 
 
-def test_expiry_uses_configured_ttl(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_expiry_uses_configured_ttl(config: Sections) -> None:
     assert expiry(NOW) == NOW + timedelta(minutes=60)
-    monkeypatch.setenv("SESSION_TTL_MINUTES", "2")
+    config["sessions"]["ttl_minutes"] = 2
     get_settings.cache_clear()
     assert expiry(NOW) == NOW + timedelta(minutes=2)
 

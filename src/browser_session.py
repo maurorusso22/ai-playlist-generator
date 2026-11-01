@@ -17,7 +17,7 @@ import uuid
 import streamlit as st
 from streamlit_js_eval import streamlit_js_eval
 
-from src.config import SESSION_ID_STORAGE_KEY
+from src.config.constants import SESSION_ID_STORAGE_KEY
 
 BRIDGE_KEY_PREFIX = "_apg_bridge"  # Prefix of every session_state key the bridge owns
 GENERATION_KEY = f"{BRIDGE_KEY_PREFIX}_generation"  # Bumped by each write or redirect

@@ -1,7 +1,7 @@
 """Live Gemini tests for the conversation engine.
 
-Requires a populated `.env` (the settings need all six required variables) and calls the
-real Gemini API, so the module is skipped when `GOOGLE_API_KEY` or the settings are missing:
+Requires the secrets in `.env` and a complete `config/base.toml`, and calls the real
+Gemini API, so the module is skipped when `GOOGLE_API_KEY` or the settings are missing:
 
     pytest tests/integration/test_chain_integration.py
 """
@@ -16,7 +16,9 @@ import pytest
 from dotenv import load_dotenv
 
 from src.chain import run_turn
-from src.config import ConfigError, get_settings
+from src.config.errors import ConfigError
+from src.config.secrets import get_secrets
+from src.config.settings import get_settings
 from src.schema import AssistantTurn
 
 load_dotenv()
@@ -37,18 +39,21 @@ _logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope="module", autouse=True)
 def live_settings() -> Iterator[None]:
-    """Skip the module when the settings cannot be loaded from the environment.
+    """Skip the module when the secrets or the settings cannot be loaded.
 
     Returns:
         Nothing; yields once the settings are valid and clears the cache afterwards.
     """
     get_settings.cache_clear()
+    get_secrets.cache_clear()
     try:
         get_settings()
+        get_secrets()
     except ConfigError as exc:
-        pytest.skip(f"Live Gemini tests require a complete .env: {exc}")
+        pytest.skip(f"Live Gemini tests require .env and config/base.toml: {exc}")
     yield
     get_settings.cache_clear()
+    get_secrets.cache_clear()
 
 
 def _timed_turn(text: str) -> tuple[AssistantTurn, float]:

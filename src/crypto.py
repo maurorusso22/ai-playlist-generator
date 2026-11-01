@@ -5,7 +5,8 @@ import json
 from cryptography.fernet import Fernet, InvalidToken
 from pydantic import ValidationError
 
-from src.config import ConfigError, get_settings
+from src.config.errors import ConfigError
+from src.config.secrets import get_secrets
 from src.schema import SpotifyTokens
 
 
@@ -16,7 +17,7 @@ def _fernet() -> Fernet:
         A Fernet instance keyed with the configured secret.
     """
     try:
-        return Fernet(get_settings().session_encryption_key)
+        return Fernet(get_secrets().session_encryption_key)
     except ValueError:
         # binascii.Error (bad base64) subclasses ValueError; the key itself is never echoed.
         raise ConfigError(
