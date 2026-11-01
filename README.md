@@ -141,7 +141,7 @@ sequenceDiagram
 > **Data boundary.** Spotify-resolved data is stored separately from the conversation and used only for display and playlist creation. The LLMs only ever see the user's messages and Gemini's own previous replies and drafts. For guests, the card is followed by a **"Log in with Spotify to save"** button; after the OAuth round-trip the same confirmation buttons appear.
 
 ### 1. Conversation Engine
-Implemented in `src/intent_gate.py`, `src/chain.py`, `src/prompt.py`, `src/schema.py` and `src/criteria.py`:
+Implemented in `src/intent_gate.py`, `src/chain.py`, `src/prompt.py`, `src/models/conversation/` and `src/criteria.py`:
 * **Intent gate (fail-open):** before Gemini, **Gemma 4 26B** (`gemma-4-26b-a4b-it`, a separate and larger free-tier quota) classifies the new message, with the assistant's last text reply as context, and answers one word. Only an unambiguous `OUT` blocks it: the user gets a fixed off-topic reply, saved like a normal turn, and Gemini is not called. Any other answer, an error, a `429` or the 3-second timeout lets the message through, and messages over 2,000 characters skip the gate. The gate runs with thinking set to `minimal`, temperature 0, a single attempt and a few output tokens. It is deliberately lazy: a missed off-topic message costs one Gemini request (and Gemini still declines it), while a blocked legitimate one would break the product.
 * **One Gemini call per user turn** through LangChain's `ChatGoogleGenerativeAI.with_structured_output`, using **Gemini 3.5 Flash-Lite** via a [Google AI Studio](https://aistudio.google.com/apikey) API key. The response is parsed into an `AssistantTurn` Pydantic model instead of free text:
 
@@ -318,7 +318,10 @@ ai-playlist-generator/
 │   │   ├── secrets.py          # Secrets from the environment (.env / Secret Manager)
 │   │   ├── constants.py        # Fixed app-wide constants
 │   │   └── errors.py           # ConfigError
-│   ├── schema.py               # Pydantic models (criteria, drafts, resolved tracks, session)
+│   ├── models/                 # Pydantic models, one class per file
+│   │   ├── conversation/       # LLM structured output: AssistantTurn, PlaylistCriteria, PlaylistDraft, TrackSuggestion
+│   │   ├── spotify/            # Spotify data: ResolvedTrack, SpotifyTokens
+│   │   └── session/            # Firestore session: SessionState, ChatMessage, PendingAction, CreatedPlaylist
 │   ├── prompt.py               # System prompt and clarification fallback
 │   ├── chain.py                # LLM call with structured output and history
 │   ├── criteria.py             # Minimum-criteria guard (≥ 1 of 6 references)
