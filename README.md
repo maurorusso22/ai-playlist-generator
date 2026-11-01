@@ -158,9 +158,10 @@ Implemented in `src/guards/intent_gate.py`, `src/conversation/chain.py`, `src/co
   ```
 
 * **History:** previous text turns plus the current draft serialized as the LLM's own title/artist list. Spotify-resolved data is never part of the prompt.
+* **Playlist title:** the LLM names every playlist (short, in the user's language, the user's own name verbatim when given, kept across revisions unless a rename is asked). `src/conversation/title.py` then collapses whitespace, strips wrapping double quotes, caps it at 60 characters and falls back to "My AI Playlist" when blank, because the title becomes the Spotify playlist name, which is required.
 * **Playlist size:** `target_size` is clamped in Python to 1 ≤ N ≤ 30 (16 when the user gives no number) whatever the LLM returns, so the bound holds even if the prompt is ignored.
 * **Deterministic minimum-criteria guard:** `criteria.has_minimum_criteria()` returns `True` when at least one of the six lists (genre, mood, year/era, artist, album, song) is non-empty. If the LLM proposes a playlist without any criterion and there is no existing draft, the app overrides the turn with a polite clarification (fallback text in `src/conversation/prompt.py`) that suggests those six kinds of information. The rule is enforced in testable Python, not left to the prompt alone.
-* **System prompt rules:** satisfy every constraint; never invent tracks that do not exist; prefer well-known releases; use the size the user asks for, or `playlist.default_size` = 16 when none is given, always within 1 ≤ N ≤ `playlist.max_size` = 30, and tell the user when a request falls outside that range; over-generate by 20%; reply in the user's language; politely decline off-topic requests; never reveal its instructions.
+* **System prompt rules:** satisfy every constraint; never invent tracks that do not exist; prefer well-known releases; use the size the user asks for, or `playlist.default_size` = 16 when none is given, always within 1 ≤ N ≤ `playlist.max_size` = 30, and tell the user when a request falls outside that range; over-generate by 20%; give the playlist a short title; reply in the user's language; politely decline off-topic requests; never reveal its instructions.
 * **Error handling** follows the reference project: every `429` quota error (per-minute or per-day) tells the user the AI quota is used up for today and to come back tomorrow, a `404` signals a misconfigured model id, and `5xx` errors produce a "temporarily unavailable" notice. The SDK makes at most 2 attempts per call (one retry), so the user gets this feedback within seconds.
 
 ### 2. Playlist Resolution
@@ -325,7 +326,8 @@ ai-playlist-generator/
 │   ├── conversation/           # Conversation engine
 │   │   ├── prompt.py           # System prompt and clarification fallback
 │   │   ├── chain.py            # LLM call with structured output and history
-│   │   └── criteria.py         # Minimum-criteria guard (≥ 1 of 6 references)
+│   │   ├── criteria.py         # Minimum-criteria guard (≥ 1 of 6 references)
+│   │   └── title.py            # Playlist title clean-up (length cap, blank fallback)
 │   ├── guards/                 # Quota protection in front of Gemini
 │   │   ├── intent_gate.py      # Fail-open Gemma filter for off-topic messages
 │   │   └── rate_limiter.py     # Per-IP sliding-window rate limiting (in memory)
@@ -499,6 +501,7 @@ python -m scripts.spotify_spike
 | Layer | Scope | Notes |
 | :--- | :--- | :--- |
 | `src/conversation/criteria.py` | Unit | Minimum-criteria guard across all six references and the empty case (`test_criteria.py`). |
+| `src/conversation/title.py` | Unit | Whitespace and quote clean-up, apostrophes kept, 60-character cap, blank fallback, guard integration and the prompt's title rule (`test_playlist_title.py`). |
 | `src/config/` | Unit | Committed TOML files valid, overlay merged key by key, unknown `APP_ENV`/keys/sections rejected, strict types, size bounds and redirect-URI rules (`test_settings.py`, `test_config_files.py`); missing secrets reported together and hidden from `repr()` (`test_secrets.py`). |
 | `src/session/browser_session.py` | Unit | Tri-state `localStorage` read (not loaded / empty / valid UUID4) with the bridge mocked (`test_browser_session.py`). |
 | `src/ui/playlist_card.py` | Unit | `html.escape` on every dynamic field, Spotify URL allowlist, not-found badge, unaltered artwork (`test_playlist_card.py`). |
