@@ -1,0 +1,19 @@
+# Keep secrets, local state and dev-only files out of the build context.
+.env
+.env.*
+.git/
+.github/
+.venv/
+venv/
+.claude/
+docs/
+scripts/
+tests/
+terraform/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.DS_Store
+*.log

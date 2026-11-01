@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.whl
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+*.json
+!package.json
+
+# Google Cloud credentials
+service-account*.json
+gcloud/
+application_default_credentials.json
+
+# Streamlit
+.streamlit/secrets.toml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.pytest_cache/
+.ruff_cache/
+
+# Project planning (local only)
+docs/plan.md
+
+# Terraform
+.terraform/
+*.tfstate*
+*.tfplan
+.terraform.lock.hcl
+
+# macOS
+.DS_Store
+
+# Docker
+*.log
+
+# Distribution / packaging
+*.tar.gz
+*.zip

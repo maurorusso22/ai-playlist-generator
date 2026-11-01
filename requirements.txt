@@ -1,0 +1,29 @@
+# ── AI / LLM ──────────────────────────────────────────────────────────────────
+langchain-core>=1.0.0
+langchain-google-genai>=4.4.2  # google-genai based; handles 3.5 Flash-Lite fixed sampling and no-prefill rules
+
+# ── Models ────────────────────────────────────────────────────────────────────
+pydantic>=2.7.0       # v2 models for structured output and session state
+
+# ── Spotify / HTTP ────────────────────────────────────────────────────────────
+httpx>=0.27.0         # Thin Spotify Web API client (no spotipy)
+
+# ── Session Store & Crypto ────────────────────────────────────────────────────
+google-cloud-firestore>=2.19.0
+cryptography>=43.0.0  # Fernet encryption of Spotify tokens at rest
+
+# ── Frontend ──────────────────────────────────────────────────────────────────
+streamlit>=1.40.0
+streamlit-js-eval>=1.0.0  # localStorage bridge for the session id (tri-state read, JS try/catch)
+
+# ── Rate Limiting ─────────────────────────────────────────────────────────────
+cachetools>=5.0.0
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+python-dotenv>=1.0.0
+
+# ── Development & Code Quality ────────────────────────────────────────────────
+ruff>=0.9.0           # Linter and formatter — enforces all code quality standards
+pytest>=8.0.0
+pytest-mock>=3.14.0
+respx>=0.21.0         # Mocks httpx at the transport layer for offline Spotify tests
