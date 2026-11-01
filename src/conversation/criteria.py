@@ -2,7 +2,7 @@
 
 The rules live here, in testable Python, so they hold even when the LLM ignores the prompt:
 a playlist needs at least one of six references (unless a draft already exists), and its
-size is always clamped to the configured bounds, whatever the LLM returns.
+size is always clamped to the configured bounds and its title cleaned, whatever the LLM returns.
 """
 
 import math
@@ -11,6 +11,7 @@ import unicodedata
 from src.config.constants import OVERGENERATION_RATIO, PLAYLIST_HARD_MAX_SIZE, PLAYLIST_MIN_SIZE
 from src.config.settings import get_settings
 from src.conversation.prompt import CLARIFICATION_FALLBACK
+from src.conversation.title import clean_title
 from src.models.conversation.assistant_turn import AssistantTurn
 from src.models.conversation.playlist_criteria import PlaylistCriteria
 from src.models.conversation.playlist_draft import PlaylistDraft
@@ -76,7 +77,7 @@ def _normalize(text: str) -> str:
 
 
 def _clean_playlist(draft: PlaylistDraft) -> PlaylistDraft:
-    """Clamp the target size, drop blank and duplicate tracks, truncate to the candidate count.
+    """Clamp the target size, clean the title, drop blank and duplicate tracks, cap the count.
 
     Args:
         draft: The playlist as returned by the LLM.
@@ -92,7 +93,11 @@ def _clean_playlist(draft: PlaylistDraft) -> PlaylistDraft:
         if all(key) and key not in seen:
             seen.add(key)
             tracks.append(track)
-    update = {"target_size": size, "tracks": tracks[: candidate_count(size)]}
+    update = {
+        "title": clean_title(draft.title),
+        "target_size": size,
+        "tracks": tracks[: candidate_count(size)],
+    }
     cleaned: PlaylistDraft = draft.model_copy(update=update)
     return cleaned
 

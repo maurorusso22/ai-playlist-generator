@@ -21,6 +21,7 @@ from src.config.secrets import get_secrets
 from src.config.settings import get_settings
 from src.conversation.criteria import apply_guard, candidate_count, clamp_size
 from src.conversation.prompt import SYSTEM_PROMPT, format_draft_context
+from src.conversation.title import MAX_TITLE_LENGTH
 from src.models.conversation.assistant_turn import AssistantTurn
 from src.models.conversation.playlist_draft import PlaylistDraft
 from src.models.session.chat_message import ChatMessage
@@ -71,6 +72,7 @@ def _system_prompt(draft: PlaylistDraft | None) -> str:
         extra_percent=round(OVERGENERATION_RATIO * 100),
         default_candidates=candidate_count(default_size),
         max_candidates=candidate_count(max_size),
+        max_title_length=MAX_TITLE_LENGTH,
     )
     return rules + format_draft_context(draft)
 
