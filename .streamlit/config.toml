@@ -1,0 +1,13 @@
+# Dark violet theme; Spotify green (#1DB954) is applied in CSS to Spotify-branded buttons only.
+[theme]
+base = "dark"
+primaryColor = "#A855F7"
+backgroundColor = "#0B0614"
+secondaryBackgroundColor = "#1A1030"
+textColor = "#EDE9FE"
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false

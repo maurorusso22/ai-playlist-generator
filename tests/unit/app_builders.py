@@ -1,0 +1,149 @@
+"""Builders of canned LLM turns, drafts, resolved tracks, tokens and sessions for app tests."""
+
+from datetime import timedelta
+from typing import Any
+
+from pydantic import SecretStr
+
+from src import crypto
+from src.criteria import candidate_count
+from src.schema import (
+    AssistantTurn,
+    PendingAction,
+    PlaylistCriteria,
+    PlaylistDraft,
+    ResolvedTrack,
+    SessionState,
+    SpotifyTokens,
+    TrackSuggestion,
+)
+from tests.unit.session_factory import NOW, make_state
+
+
+def make_tracks(found: int, missing: int = 0) -> list[ResolvedTrack]:
+    """Build resolved tracks: `found` matches followed by `missing` not-found entries.
+
+    Args:
+        found: Number of found tracks.
+        missing: Number of not-found entries.
+
+    Returns:
+        The tracks.
+    """
+    hits = [
+        ResolvedTrack(
+            spotify_id=f"id{i}",
+            uri=f"spotify:track:id{i}",
+            name=f"Song {i}",
+            artists=[f"Artist {i}"],
+            album=f"Album {i}",
+            image_url=f"https://i.scdn.co/image/{i}",
+            external_url=f"https://open.spotify.com/track/id{i}",
+            found=True,
+        )
+        for i in range(found)
+    ]
+    lost = [
+        ResolvedTrack(name=f"Lost {i}", artists=["Nobody"], found=False) for i in range(missing)
+    ]
+    return hits + lost
+
+
+def make_draft(size: int, candidates: int | None = None) -> PlaylistDraft:
+    """Build an LLM draft titled "House Hits".
+
+    Args:
+        size: Target size.
+        candidates: Number of suggestions (defaults to `size`).
+
+    Returns:
+        The draft.
+    """
+    count = candidates or size
+    tracks = [TrackSuggestion(title=f"Song {i}", artist=f"Artist {i}") for i in range(count)]
+    return PlaylistDraft(
+        title="House Hits", description="2010s house.", target_size=size, tracks=tracks
+    )
+
+
+def clarify_turn() -> AssistantTurn:
+    """Build a clarification turn without a playlist.
+
+    Returns:
+        The turn.
+    """
+    return AssistantTurn(intent="clarify", criteria=PlaylistCriteria(), message="Which genre?")
+
+
+def propose_turn(size: int) -> AssistantTurn:
+    """Build a playlist proposal with over-generated candidates.
+
+    Args:
+        size: Target size.
+
+    Returns:
+        The turn.
+    """
+    return AssistantTurn(
+        intent="propose_playlist",
+        criteria=PlaylistCriteria(genres=["house"]),
+        message="Here you go!",
+        playlist=make_draft(size, candidate_count(size)),
+    )
+
+
+def make_tokens(name: str | None = "Mauro") -> SpotifyTokens:
+    """Build user tokens valid for one hour after NOW.
+
+    Args:
+        name: Display name; None as returned by the code exchange.
+
+    Returns:
+        The tokens.
+    """
+    return SpotifyTokens(
+        access_token=SecretStr("access-1"),
+        refresh_token=SecretStr("refresh-1"),
+        expires_at=NOW + timedelta(hours=1),
+        display_name=name,
+    )
+
+
+def draft_state(
+    mode: str = "spotify", found: int = 16, missing: int = 0, **fields: Any
+) -> SessionState:
+    """Build a session whose last message carries a draft card and its pending action.
+
+    Args:
+        mode: "spotify" (confirm_create, with tokens) or "guest" (login_to_save).
+        found: Found tracks of the draft.
+        missing: Not-found entries of the draft.
+        **fields: Field overrides.
+
+    Returns:
+        The session state.
+    """
+    kind = "confirm_create" if mode == "spotify" else "login_to_save"
+    base: dict[str, Any] = {
+        "mode": mode,
+        "draft": make_draft(found + missing),
+        "draft_message_index": 1,
+        "resolved_tracks": make_tracks(found, missing),
+        "pending_action": PendingAction.model_validate({"kind": kind, "message_index": 1}),
+        "spotify_auth": crypto.encrypt_tokens(make_tokens()) if mode == "spotify" else None,
+    }
+    return session(messages=2, **(base | fields))
+
+
+def session(messages: int = 0, **fields: Any) -> SessionState:
+    """Build a session like `make_state`, with any field overridden (mode included).
+
+    Args:
+        messages: Number of alternating user/assistant messages.
+        **fields: Field overrides.
+
+    Returns:
+        The session state.
+    """
+    state: SessionState = make_state(messages=messages).model_copy(update=fields)
+    return state
