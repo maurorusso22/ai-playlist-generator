@@ -24,14 +24,9 @@ locals {
     session_encryption_key = "SESSION_ENCRYPTION_KEY" # Fernet key for Spotify tokens at rest
   }
 
+  # App settings ship in the image (config/*.toml); this only selects config/production.toml.
   plain_env = {
-    GCP_PROJECT_ID       = var.project_id           # Project hosting Firestore
-    SESSIONS_COLLECTION  = var.sessions_collection  # Firestore collection for sessions
-    LLM_MODEL            = var.llm_model            # Gemini model id
-    INTENT_MODEL         = var.intent_model         # Gemma model id of the intent gate
-    SPOTIFY_CLIENT_ID    = var.spotify_client_id    # Spotify app Client ID
-    SPOTIFY_REDIRECT_URI = var.spotify_redirect_uri # OAuth callback, the canonical URL
-    SPOTIFY_MARKET       = var.spotify_market       # Market for catalog search
+    APP_ENV = "production" # Overlay applied on top of config/base.toml
   }
 }
 
@@ -249,10 +244,8 @@ resource "google_cloud_run_v2_service" "app" {
 
   lifecycle {
     precondition {
-      condition = (
-        var.image_url != "" && var.spotify_client_id != "" && var.spotify_redirect_uri != ""
-      )
-      error_message = "Cloud Run needs non-empty image_url, spotify_client_id and spotify_redirect_uri."
+      condition     = var.image_url != ""
+      error_message = "Cloud Run needs a non-empty image_url."
     }
 
     # CI deploys new images with gcloud, which must not show up as Terraform drift.

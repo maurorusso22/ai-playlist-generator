@@ -2,12 +2,12 @@
 # project_id and sessions_collection read from resources applied with the core infrastructure.
 
 output "project_id" {
-  description = "GCP project ID (GCP_PROJECT_ID in .env)."
+  description = "GCP project ID (gcp.project_id in config/base.toml)."
   value       = google_service_account.app.project
 }
 
 output "sessions_collection" {
-  description = "Firestore collection holding chat sessions (SESSIONS_COLLECTION in .env)."
+  description = "Firestore collection holding chat sessions (sessions.collection in config/base.toml)."
   value       = google_firestore_field.sessions_ttl.collection
 }
 
