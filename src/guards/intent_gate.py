@@ -137,8 +137,8 @@ def gate_turn(text: str, history: Sequence[ChatMessage]) -> AssistantTurn | None
     Returns:
         An `off_topic` turn with OUT_OF_SCOPE_REPLY when Gemma answers OUT, otherwise None.
     """
-    if not _is_out_of_scope(text, history):
-        return None
-    return AssistantTurn(
-        intent="off_topic", criteria=PlaylistCriteria(), message=OUT_OF_SCOPE_REPLY
-    )
+    if _is_out_of_scope(text, history):
+        return AssistantTurn(
+            intent="off_topic", criteria=PlaylistCriteria(), message=OUT_OF_SCOPE_REPLY
+        )
+    return None
