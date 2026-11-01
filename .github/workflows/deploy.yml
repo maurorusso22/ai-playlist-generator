@@ -1,0 +1,80 @@
+name: Test and deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+
+# Least privilege by default; the deploy job adds the OIDC token permission it needs.
+permissions:
+  contents: read
+
+# Replace YOUR_PROJECT_ID in PROJECT_ID and SERVICE_ACCOUNT (README "Deployment on GCP", Step 6).
+env:
+  PROJECT_ID: YOUR_PROJECT_ID
+  REGION: us-central1
+  IMAGE_NAME: playlist-generator
+  SERVICE_ACCOUNT: playlist-generator@YOUR_PROJECT_ID.iam.gserviceaccount.com
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # Same interpreter as the production image.
+    container: python:3.12.13-slim-bookworm
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: pip install --no-cache-dir -r requirements.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Check formatting
+        run: ruff format --check .
+
+      - name: Run unit tests
+        run: pytest tests/unit -v
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write  # Required for Workload Identity Federation
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push Docker image
+        run: |
+          IMAGE_URL="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          docker build --platform linux/amd64 -t "$IMAGE_URL" .
+          docker push "$IMAGE_URL"
+          echo "IMAGE_URL=$IMAGE_URL" >> "$GITHUB_ENV"
+
+      # Only the image changes: timeout, affinity, env and secrets stay as Terraform set them,
+      # and skipping the default labels keeps the revision template free of Terraform drift.
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: playlist-generator
+          region: ${{ env.REGION }}
+          image: ${{ env.IMAGE_URL }}
+          skip_default_labels: true
