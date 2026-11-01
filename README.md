@@ -160,12 +160,12 @@ Implemented in `src/intent_gate.py`, `src/chain.py`, `src/prompt.py`, `src/schem
 * **History:** previous text turns plus the current draft serialized as the LLM's own title/artist list. Spotify-resolved data is never part of the prompt.
 * **Playlist size:** `target_size` is clamped in Python to 1 ≤ N ≤ 30 (16 when the user gives no number) whatever the LLM returns, so the bound holds even if the prompt is ignored.
 * **Deterministic minimum-criteria guard:** `criteria.has_minimum_criteria()` returns `True` when at least one of the six lists (genre, mood, year/era, artist, album, song) is non-empty. If the LLM proposes a playlist without any criterion and there is no existing draft, the app overrides the turn with a polite clarification (fallback text in `src/prompt.py`) that suggests those six kinds of information. The rule is enforced in testable Python, not left to the prompt alone.
-* **System prompt rules:** satisfy every constraint; never invent tracks that do not exist; prefer well-known releases; use the size the user asks for, or `PLAYLIST_DEFAULT_SIZE` = 16 when none is given, always within 1 ≤ N ≤ `PLAYLIST_MAX_SIZE` = 30, and tell the user when a request falls outside that range; over-generate by 20%; reply in the user's language; politely decline off-topic requests; never reveal its instructions.
+* **System prompt rules:** satisfy every constraint; never invent tracks that do not exist; prefer well-known releases; use the size the user asks for, or `playlist.default_size` = 16 when none is given, always within 1 ≤ N ≤ `playlist.max_size` = 30, and tell the user when a request falls outside that range; over-generate by 20%; reply in the user's language; politely decline off-topic requests; never reveal its instructions.
 * **Error handling** follows the reference project: every `429` quota error (per-minute or per-day) tells the user the AI quota is used up for today and to come back tomorrow, a `404` signals a misconfigured model id, and `5xx` errors produce a "temporarily unavailable" notice. The SDK makes at most 2 attempts per call (one retry), so the user gets this feedback within seconds.
 
 ### 2. Playlist Resolution
 Implemented in `src/spotify/resolver.py`, this step makes every playlist **Spotify-ready** in both modes (guests use the app-level Client Credentials token):
-* **Search:** for each `TrackSuggestion`, the resolver calls `GET /v1/search?type=track&q=track:"<title>" artist:"<artist>"&limit=5&market=<SPOTIFY_MARKET>` (well within the 10-results cap that applies to new Development Mode apps).
+* **Search:** for each `TrackSuggestion`, the resolver calls `GET /v1/search?type=track&q=track:"<title>" artist:"<artist>"&limit=5&market=<spotify.market>` (well within the 10-results cap that applies to new Development Mode apps).
 * **Matching:** the best candidate is chosen by normalized string similarity on title and artist (`difflib`); candidates below a minimum score are marked `not_found`.
 * **Over-generation instead of backfill:** the LLM is asked for `size + ceil(size * 0.2)` candidates (20 for the default 16-track playlist, 36 for the maximum of 30) and the app keeps the first `size` tracks that resolve. Unresolved leftovers are shown flagged as "not found on Spotify" and excluded from saving. There is no automatic "replace missing tracks" loop, because it would feed Spotify-derived data back into the LLM.
 * **Performance:** searches run in parallel on a bounded `ThreadPoolExecutor` (5 workers), and identical suggestions within one request are searched only once. Search results are not cached across requests, because Spotify's Developer Terms forbid caching content beyond what is needed for immediate use. The UI shows progress ("Finding tracks on Spotify… 12/20") with skeleton placeholders.
@@ -177,7 +177,7 @@ Implemented as a thin custom client on `httpx` (`src/spotify/client.py`) plus th
 * **Client Credentials flow:** an app-level token, kept in memory until it expires, used only for public catalog search (no user data) in both modes.
 * **Authorization Code flow:** a server-side confidential client (`SPOTIFY_CLIENT_SECRET` from Secret Manager) with scope **`playlist-modify-private` only** and a random `state` stored in the session document for CSRF protection. Spotify's guidelines prefer Authorization Code with PKCE and accept the classic Authorization Code flow for apps with a secure backend. The backend flow is used here because the client secret is required anyway for Client Credentials and never leaves the server. The deprecated Implicit Grant flow is never used.
   1. "Continue with Spotify" creates or loads the session, stores `oauth_state` and performs a **same-tab** redirect to `https://accounts.spotify.com/authorize` (`st.link_button` would open a new tab and lose the context).
-  2. Spotify redirects to `SPOTIFY_REDIRECT_URI` (the app root) with `?code&state`. The app reads the session id from `localStorage`, verifies `state`, exchanges the code, calls `GET /v1/me`, stores the encrypted tokens and display name, then clears the query parameters (`st.query_params.clear()`) and switches the mode to `spotify`.
+  2. Spotify redirects to `spotify.redirect_uri` (the app root) with `?code&state`. The app reads the session id from `localStorage`, verifies `state`, exchanges the code, calls `GET /v1/me`, stores the encrypted tokens and display name, then clears the query parameters (`st.query_params.clear()`) and switches the mode to `spotify`.
   3. If `GET /v1/me` returns **403** (user not in the Development Mode allowlist), the tokens are discarded, an invite-only notice is shown and the chat stays in guest mode.
   4. If the session holds a pending draft, the assistant appends `You're logged in as <name> — save '<title>' to Spotify?` with the confirmation buttons.
 * **Endpoints used** (post-migration Web API):
@@ -197,12 +197,12 @@ Implemented as a thin custom client on `httpx` (`src/spotify/client.py`) plus th
 ### 4. Session Management
 Implemented in `src/session_store.py`, `src/browser_session.py` and `src/crypto.py`. **Firestore Native Mode with a TTL policy** was chosen over Redis: it is already part of the stack, free, and managed by Terraform, whereas Memorystore is not free and a hosted Redis would add an external vendor and secret outside Terraform.
 * **Session id:** a server-generated UUID4 stored in the browser's `localStorage` under the key `apg_session_id` via a small Streamlit JS bridge component (`streamlit-js-eval`). No cookies, nothing in the URL: a query-parameter session would leak the conversation and the Spotify authorization to anyone holding the link.
-* **Document `sessions/{session_id}`** (collection `SESSIONS_COLLECTION`):
+* **Document `sessions/{session_id}`** (collection `sessions.collection`):
 
   | Field | Content |
   | :--- | :--- |
   | `created_at`, `last_message_at` | Timestamps of creation and of the latest activity. |
-  | `expires_at` | `last_message_at + SESSION_TTL_MINUTES`; checked on every read and used as the Firestore TTL field. |
+  | `expires_at` | `last_message_at + sessions.ttl_minutes`; checked on every read and used as the Firestore TTL field. |
   | `mode` | `guest` or `spotify`. |
   | `messages` | List of `{role, content, created_at}` (`role`: `user`, `assistant` or `notice`; `notice` messages are app-generated and never sent to the LLM), capped to the last 50 entries. |
   | `draft` | The LLM's own `PlaylistDraft` (title, description, title/artist suggestions). |
@@ -252,7 +252,7 @@ All GCP resources are provisioned with **Terraform** (google provider `~> 5.0`),
 | CI/CD identity | `google_iam_workload_identity_pool.github`, `google_iam_workload_identity_pool_provider.github`, plus IAM members | Keyless GitHub Actions deploys (pool `github-actions`, provider `github-oidc`). |
 | Custom domain | `google_cloud_run_domain_mapping.custom` | Optional, created only when `custom_domain` is set. |
 
-* **Variables:** `project_id`, `region` (`us-central1`), `sessions_collection` (`sessions`), `llm_model`, `intent_model` (`gemma-4-26b-a4b-it`), `image_url`, `spotify_client_id`, `spotify_redirect_uri`, `spotify_market`, `github_repo` (`maurorusso22/ai-playlist-generator`), `custom_domain` (empty by default).
+* **Variables:** `project_id`, `region` (`us-central1`), `sessions_collection` (`sessions`, kept equal to `sessions.collection` by `make tf-apply`), `image_url`, `github_repo` (`maurorusso22/ai-playlist-generator`), `custom_domain` (empty by default). App settings are not Terraform inputs: they ship in the image under `config/`.
 * **Outputs:** `cloud_run_url`, `service_account_email`, `sessions_collection`, `project_id`, `custom_domain_mapping_records`.
 * Secret **values** are created manually with `gcloud` and never appear in Terraform state.
 
@@ -260,7 +260,7 @@ All GCP resources are provisioned with **Terraform** (google provider `~> 5.0`),
 The application is containerized with Docker (`python:3.12.13-slim-bookworm`, built for `linux/amd64`) and hosted on **Google Cloud Run**:
 * **Scaling:** min 0 / max 1 instances, 1 vCPU / 512 MiB, port 8501, so the service scales to zero when idle.
 * **WebSockets:** Streamlit keeps one WebSocket open per browser tab and Cloud Run caps every request, WebSockets included, at the request timeout. The service therefore uses `timeout = "3600s"` and **session affinity**.
-* **Configuration:** plain environment variables (`GCP_PROJECT_ID`, `SESSIONS_COLLECTION`, `LLM_MODEL`, `INTENT_MODEL`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_REDIRECT_URI`, `SPOTIFY_MARKET`) are set by Terraform; `GOOGLE_API_KEY`, `SPOTIFY_CLIENT_SECRET` and `SESSION_ENCRYPTION_KEY` are injected from Secret Manager via `secret_key_ref`.
+* **Configuration:** settings and secrets never mix. Non-secret settings are TOML files baked into the image (`config/base.toml`, overridden key by key by `config/production.toml`, selected by the `APP_ENV=production` variable that Terraform sets); `GOOGLE_API_KEY`, `SPOTIFY_CLIENT_SECRET` and `SESSION_ENCRYPTION_KEY` are injected from Secret Manager via `secret_key_ref`.
 * **CI/CD:** on every push to `main`, GitHub Actions runs a `test` job (`ruff check`, `ruff format --check`, `pytest tests/unit`) and then a `deploy` job that authenticates through Workload Identity Federation, builds a `linux/amd64` image tagged with the commit SHA, pushes it to Artifact Registry and deploys a new Cloud Run revision.
 
 ---
@@ -299,7 +299,10 @@ ai-playlist-generator/
 ├── Makefile                    # run, test-unit, test-integration, test-smoke, test, docker-*, tf-apply
 ├── requirements.txt            # Python dependencies
 ├── ruff.toml                   # Linter/formatter config (same rules as ai-portfolio-assistant)
-├── .env.example                # Environment variable template (no secrets)
+├── .env.example                # Secrets template: the three secret names, no values
+├── config/
+│   ├── base.toml               # Non-secret settings (local-development values)
+│   └── production.toml         # Production overrides, selected by APP_ENV=production
 ├── .streamlit/
 │   └── config.toml             # Dark violet theme
 ├── public/
@@ -309,7 +312,12 @@ ai-playlist-generator/
 │   ├── spotify_spike.py        # Dev-only: Phase 3 Spotify de-risking spike
 │   └── spike_helpers.py        # Spike HTTP helpers (standalone, no src/ imports)
 ├── src/
-│   ├── config.py               # Env loading/validation and constants
+│   ├── config/
+│   │   ├── settings.py         # Pydantic validation of the TOML settings
+│   │   ├── files.py            # base.toml + APP_ENV overlay loading
+│   │   ├── secrets.py          # Secrets from the environment (.env / Secret Manager)
+│   │   ├── constants.py        # Fixed app-wide constants
+│   │   └── errors.py           # ConfigError
 │   ├── schema.py               # Pydantic models (criteria, drafts, resolved tracks, session)
 │   ├── prompt.py               # System prompt and clarification fallback
 │   ├── chain.py                # LLM call with structured output and history
@@ -368,28 +376,34 @@ ai-playlist-generator/
   * select the **Web API** and register the redirect URI `http://127.0.0.1:8501/` exactly (add the production URL later, see [Deployment Step 7](#step-7--register-the-spotify-redirect-uri));
   * add the Spotify accounts that may log in (**up to 5**) in the app's user management settings. Guest mode works for anyone, because catalog search uses the app-level Client Credentials token.
 
-### Environment Variables
+### Configuration and Secrets
 
-Create a `.env` file at the project root based on `.env.example`:
+Settings and secrets live in separate files and never mix.
 
-| Variable | Required | Default | Description |
-| :--- | :---: | :--- | :--- |
-| `GOOGLE_API_KEY` | ✅ | — | Google AI Studio API key for Gemini. |
-| `GCP_PROJECT_ID` | ✅ | — | GCP project hosting Firestore. |
-| `SPOTIFY_CLIENT_ID` | ✅ | — | Spotify app Client ID. |
-| `SPOTIFY_CLIENT_SECRET` | ✅ | — | Spotify app Client Secret (Secret Manager in prod). |
-| `SPOTIFY_REDIRECT_URI` | ✅ | — | OAuth redirect URI (local: `http://127.0.0.1:8501/`). |
-| `SESSION_ENCRYPTION_KEY` | ✅ | — | Fernet key encrypting Spotify tokens at rest (Secret Manager in prod). |
-| `SESSIONS_COLLECTION` | ❌ | `sessions` | Firestore collection for chat sessions. |
-| `SESSION_TTL_MINUTES` | ❌ | `60` | Session lifetime after the last message. |
-| `LLM_MODEL` | ❌ | `gemini-3.5-flash-lite` | Gemini model id. |
-| `INTENT_MODEL` | ❌ | `gemma-4-26b-a4b-it` | Gemma model id of the intent gate. |
-| `SPOTIFY_MARKET` | ❌ | `IT` | ISO country code for catalog search. |
-| `PLAYLIST_DEFAULT_SIZE` | ❌ | `16` | Tracks when the user doesn't specify a size. |
-| `PLAYLIST_MAX_SIZE` | ❌ | `30` | Upper bound on playlist size; can be lowered but never raised above 30 (the minimum is fixed at 1). |
-| `RATE_LIMIT_MAX_REQUESTS` | ❌ | `12` | Max chat messages per IP in any window (sliding). |
-| `RATE_LIMIT_WINDOW` | ❌ | `60` | Rate-limit window in seconds. |
-| `CLOUD_RUN_URL` | ❌ | — | Public URL, smoke tests only. |
+**Secrets** go only in a `.env` file at the project root (copy `.env.example`); on Cloud Run they come from Secret Manager:
+
+| Variable | Description |
+| :--- | :--- |
+| `GOOGLE_API_KEY` | Google AI Studio API key for Gemini. |
+| `SPOTIFY_CLIENT_SECRET` | Spotify app Client Secret. |
+| `SESSION_ENCRYPTION_KEY` | Fernet key encrypting Spotify tokens at rest. |
+
+**Settings** go in `config/base.toml` (committed). On Cloud Run, `APP_ENV=production` also loads `config/production.toml`, which overrides single keys (the redirect URI). Unknown keys, wrong types and blank values raise a `ConfigError` naming the `section.key` the first time the settings are read.
+
+| Key | Value in `base.toml` | Description |
+| :--- | :--- | :--- |
+| `gcp.project_id` | — (fill in) | GCP project hosting Firestore. |
+| `sessions.collection` | `sessions` | Firestore collection for chat sessions. |
+| `sessions.ttl_minutes` | `60` | Session lifetime after the last message. |
+| `llm.model` | `gemini-3.5-flash-lite` | Gemini model id. |
+| `intent_gate.model` | `gemma-4-26b-a4b-it` | Gemma model id of the intent gate. |
+| `spotify.client_id` | — (fill in) | Spotify app Client ID (public by design). |
+| `spotify.redirect_uri` | `http://127.0.0.1:8501/` | OAuth redirect URI; production overrides it with the canonical `https://` URL. |
+| `spotify.market` | `IT` | ISO country code for catalog search. |
+| `playlist.default_size` | `16` | Tracks when the user doesn't specify a size. |
+| `playlist.max_size` | `30` | Upper bound on playlist size; can be lowered but never raised above 30 (the minimum is fixed at 1). |
+| `rate_limit.max_requests` | `12` | Max chat messages per IP in any window (sliding). |
+| `rate_limit.window` | `60` | Rate-limit window in seconds. |
 
 ### Installation
 
@@ -406,10 +420,11 @@ Create a `.env` file at the project root based on `.env.example`:
    .venv/bin/python -m pip install -r requirements.txt
    ```
 
-3. **Configure environment variables:**
+3. **Configure secrets and settings:**
    ```bash
    cp .env.example .env
-   # Edit .env and fill in your credentials
+   # Edit .env: the three secrets only
+   # Edit config/base.toml: set gcp.project_id and spotify.client_id
    ```
 
 4. **Generate the session encryption key** and paste it into `.env` as `SESSION_ENCRYPTION_KEY`:
@@ -465,10 +480,10 @@ pytest tests/
 # Run unit tests only (no credentials required)
 pytest tests/unit/
 
-# Run integration tests (requires valid .env credentials)
+# Run integration tests (requires .env, a complete config/base.toml and ADC)
 pytest tests/integration/
 
-# Run smoke tests against the deployed service (requires CLOUD_RUN_URL)
+# Run smoke tests against the deployed service (https:// redirect URI in config/production.toml)
 make test-smoke
 
 # Run the Spotify de-risking spike (dev only, requires an allowlisted account)
@@ -478,7 +493,7 @@ python -m scripts.spotify_spike
 | Layer | Scope | Notes |
 | :--- | :--- | :--- |
 | `src/criteria.py` | Unit | Minimum-criteria guard across all six references and the empty case (`test_criteria.py`). |
-| `src/config.py` | Unit | Missing required variables reported together, defaults, size bounds and redirect-URI validation (`test_config.py`). |
+| `src/config/` | Unit | Committed TOML files valid, overlay merged key by key, unknown `APP_ENV`/keys/sections rejected, strict types, size bounds and redirect-URI rules (`test_settings.py`, `test_config_files.py`); missing secrets reported together and hidden from `repr()` (`test_secrets.py`). |
 | `src/browser_session.py` | Unit | Tri-state `localStorage` read (not loaded / empty / valid UUID4) with the bridge mocked (`test_browser_session.py`). |
 | `src/ui/playlist_card.py` | Unit | `html.escape` on every dynamic field, Spotify URL allowlist, not-found badge, unaltered artwork (`test_playlist_card.py`). |
 | `src/chain.py` | Unit | Structured-output parsing, history containing only the LLM's own draft, clarification override, off-topic and Gemini error mapping, with a mocked LLM (`test_chain.py`). |
@@ -553,7 +568,7 @@ terraform apply \
 cd ..
 ```
 
-Populate your `.env` with the output values:
+Set `gcp.project_id` in `config/base.toml` to the `project_id` output (the `sessions_collection` output must match `sessions.collection`):
 ```bash
 terraform -chdir=terraform output
 ```
@@ -625,7 +640,7 @@ make docker-push PROJECT_ID=YOUR_PROJECT_ID
 
 ### Step 6 — Apply Cloud Run and CI/CD identity
 
-The production redirect URI is only known once the service exists, so the first apply uses the local URI as a temporary value; Step 7 replaces it.
+The production redirect URI is only known once the service exists, so the first revision keeps the loopback URI from `config/base.toml`; Step 7 overrides it in `config/production.toml`.
 
 ```bash
 cd terraform
@@ -639,9 +654,7 @@ terraform apply \
   -target=google_project_iam_member.cloud_run_developer \
   -target=google_service_account_iam_member.self_act_as \
   -var="project_id=YOUR_PROJECT_ID" \
-  -var="image_url=$IMAGE_URL" \
-  -var="spotify_client_id=YOUR_SPOTIFY_CLIENT_ID" \
-  -var="spotify_redirect_uri=http://127.0.0.1:8501/"
+  -var="image_url=$IMAGE_URL"
 cd ..
 ```
 
@@ -665,21 +678,12 @@ gcloud iam workload-identity-pools providers describe github-oidc \
    terraform -chdir=terraform output cloud_run_url
    ```
 2. In the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), open the app settings and add `https://<your-cloud-run-url>/` to the **Redirect URIs** (exact match, including the trailing slash).
-3. Point the service at the same URI:
-   ```bash
-   cd terraform
-   terraform apply \
-     -target=google_cloud_run_v2_service.app \
-     -var="project_id=YOUR_PROJECT_ID" \
-     -var="image_url=$IMAGE_URL" \
-     -var="spotify_client_id=YOUR_SPOTIFY_CLIENT_ID" \
-     -var="spotify_redirect_uri=https://<your-cloud-run-url>/"
-   cd ..
+3. Point production at the same URI: uncomment the override in `config/production.toml`:
+   ```toml
+   [spotify]
+   redirect_uri = "https://<your-cloud-run-url>/"
    ```
-4. Add the URL to your `.env`:
-   ```
-   CLOUD_RUN_URL=https://<your-cloud-run-url>
-   ```
+4. Commit and push: the CI deploy job ships a new image with the updated configuration. The smoke tests read the same URL.
 
 > **Canonical URL:** sessions live in per-origin `localStorage` and the OAuth callback always lands on the redirect URI. Always share and open the app through this single URL.
 
@@ -691,7 +695,7 @@ gcloud iam workload-identity-pools providers describe github-oidc \
 make test-smoke
 ```
 
-Verifies that the live Cloud Run URL returns HTTP 200, serves HTML, and passes the Streamlit health check at `/_stcore/health`.
+Verifies that the canonical URL (the production `spotify.redirect_uri`) returns HTTP 200, serves HTML, and passes the Streamlit health check at `/_stcore/health`.
 
 Then validate the end-to-end flow manually: generate a playlist as a guest, log in with an allowlisted Spotify account, confirm **Create on Spotify** and open the returned link.
 
@@ -717,15 +721,13 @@ Google requires you to verify domain ownership before mapping it to Cloud Run.
 
 #### 9.3 — Apply the domain mapping via Terraform
 
-Pass your domain as the `custom_domain` variable. Keep the Cloud Run redirect URI for now, so Spotify login keeps working until the domain is live:
+Pass your domain as the `custom_domain` variable. Keep the Cloud Run redirect URI in `config/production.toml` for now, so Spotify login keeps working until the domain is live:
 
 ```bash
 cd terraform
 terraform apply \
   -var="project_id=YOUR_PROJECT_ID" \
   -var="image_url=YOUR_IMAGE_URL" \
-  -var="spotify_client_id=YOUR_SPOTIFY_CLIENT_ID" \
-  -var="spotify_redirect_uri=https://<your-cloud-run-url>/" \
   -var="custom_domain=yourdomain.com"
 cd ..
 ```
@@ -755,18 +757,11 @@ Initially the status will be `CertificatePending`. Once `DomainRoutable` is `Tru
 
 #### 9.6 — Switch the canonical URL to the custom domain
 
-The custom domain is a different origin from the Cloud Run URL, so sessions are not shared between them. Once `CertificateProvisioned` is `True`, add `https://yourdomain.com/` to the Redirect URIs in the Spotify Developer Dashboard, then re-apply the service with the new redirect URI and use the custom domain as the only public URL:
+The custom domain is a different origin from the Cloud Run URL, so sessions are not shared between them. Once `CertificateProvisioned` is `True`, add `https://yourdomain.com/` to the Redirect URIs in the Spotify Developer Dashboard, then set it in `config/production.toml`, commit and push, and use the custom domain as the only public URL:
 
-```bash
-cd terraform
-terraform apply \
-  -target=google_cloud_run_v2_service.app \
-  -var="project_id=YOUR_PROJECT_ID" \
-  -var="image_url=YOUR_IMAGE_URL" \
-  -var="spotify_client_id=YOUR_SPOTIFY_CLIENT_ID" \
-  -var="spotify_redirect_uri=https://yourdomain.com/" \
-  -var="custom_domain=yourdomain.com"
-cd ..
+```toml
+[spotify]
+redirect_uri = "https://yourdomain.com/"
 ```
 
 ---
@@ -807,7 +802,7 @@ cd ..
 * **Idempotent creation:** the create button is disabled while busy and the stored `created_playlist` prevents duplicates.
 
 ### 5. Rate Limiting & Abuse Prevention
-* **IP-based Rate Limiting:** A sliding window kept in memory allows at most `RATE_LIMIT_MAX_REQUESTS` chat messages per client IP in any `RATE_LIMIT_WINDOW` (12 per 60 seconds by default). Each IP keeps the timestamps of its counted messages in a `cachetools` `TTLCache` that evicts idle IPs; blocked messages are not counted, never reach Gemini and are not saved, and the user sees "Too many messages. Please wait a minute and try again." In-memory state is enough because Cloud Run runs at most one instance; it resets on cold starts and deploys. Behind Cloud Run, the client IP is extracted from the `X-Forwarded-For` header.
+* **IP-based Rate Limiting:** A sliding window kept in memory allows at most `rate_limit.max_requests` chat messages per client IP in any `rate_limit.window` seconds (12 per 60 seconds in `config/base.toml`). Each IP keeps the timestamps of its counted messages in a `cachetools` `TTLCache` that evicts idle IPs; blocked messages are not counted, never reach Gemini and are not saved, and the user sees "Too many messages. Please wait a minute and try again." In-memory state is enough because Cloud Run runs at most one instance; it resets on cold starts and deploys. Behind Cloud Run, the client IP is extracted from the `X-Forwarded-For` header.
 * **Instance Cap:** `max-instances = 1` on Cloud Run prevents denial-of-wallet scenarios from unexpected traffic spikes.
 * **Upstream quotas:** Gemini `429` errors and Spotify `429`/`QUOTA_EXCEEDED` responses are handled with friendly messages and bounded retries rather than retry storms.
 
