@@ -9,7 +9,9 @@ from typing import Any
 
 from src.config.constants import MAX_STORED_MESSAGES
 from src.config.settings import get_settings
-from src.schema import ChatMessage, PendingAction, SessionState
+from src.models.session.chat_message import ChatMessage
+from src.models.session.pending_action import PendingAction
+from src.models.session.session_state import SessionState
 
 IMMUTABLE_FIELDS = frozenset({"session_id", "created_at"})  # Never rewritten by update()
 MANAGED_FIELDS = frozenset({"messages", "last_message_at", "expires_at"})  # Set by the store

@@ -8,7 +8,7 @@ from cryptography.fernet import Fernet
 from src.config.errors import ConfigError
 from src.config.secrets import get_secrets
 from src.crypto import decrypt_tokens, encrypt_tokens
-from src.schema import SpotifyTokens
+from src.models.spotify.spotify_tokens import SpotifyTokens
 
 ACCESS = "plain-access-token-123"  # Recognizable fake access token
 REFRESH = "plain-refresh-token-456"  # Recognizable fake refresh token

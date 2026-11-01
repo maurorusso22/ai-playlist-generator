@@ -9,7 +9,11 @@ from pytest_mock import MockerFixture
 
 from src import session_store
 from src.crypto import encrypt_tokens
-from src.schema import ChatMessage, PendingAction, PlaylistDraft, ResolvedTrack, SpotifyTokens
+from src.models.conversation.playlist_draft import PlaylistDraft
+from src.models.session.chat_message import ChatMessage
+from src.models.session.pending_action import PendingAction
+from src.models.spotify.resolved_track import ResolvedTrack
+from src.models.spotify.spotify_tokens import SpotifyTokens
 from tests.unit.session_factory import NOW, SID
 from tests.unit.session_factory import make_state as _state
 

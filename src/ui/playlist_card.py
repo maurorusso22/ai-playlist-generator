@@ -10,7 +10,10 @@ import html
 
 import streamlit as st
 
-from src.schema import CreatedPlaylist, PlaylistDraft, ResolvedTrack, SessionState
+from src.models.conversation.playlist_draft import PlaylistDraft
+from src.models.session.created_playlist import CreatedPlaylist
+from src.models.session.session_state import SessionState
+from src.models.spotify.resolved_track import ResolvedTrack
 from src.ui import styles
 
 TRACK_URL_PREFIX = "https://open.spotify.com/"  # Only links to Spotify's web player are kept

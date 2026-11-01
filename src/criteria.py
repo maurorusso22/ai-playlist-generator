@@ -10,8 +10,10 @@ import unicodedata
 
 from src.config.constants import OVERGENERATION_RATIO, PLAYLIST_HARD_MAX_SIZE, PLAYLIST_MIN_SIZE
 from src.config.settings import get_settings
+from src.models.conversation.assistant_turn import AssistantTurn
+from src.models.conversation.playlist_criteria import PlaylistCriteria
+from src.models.conversation.playlist_draft import PlaylistDraft
 from src.prompt import CLARIFICATION_FALLBACK
-from src.schema import AssistantTurn, PlaylistCriteria, PlaylistDraft
 
 PLAYLIST_INTENTS = frozenset({"propose_playlist", "revise_playlist"})  # Intents carrying a draft
 REFERENCE_FIELDS = ("genres", "moods", "years", "artists", "albums", "songs")  # The 6 references

@@ -10,7 +10,7 @@ import respx
 from pydantic import SecretStr
 from pytest_mock import MockerFixture
 
-from src.schema import SpotifyTokens
+from src.models.spotify.spotify_tokens import SpotifyTokens
 from src.spotify import auth
 from src.spotify.app_token import TOKEN_URL
 from src.spotify.client import API_BASE_URL, SpotifyClient, SpotifyForbiddenError

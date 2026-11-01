@@ -12,8 +12,12 @@ from langchain_google_genai.chat_models import GoogleRateLimitError
 from pytest_mock import MockerFixture
 
 from src import chain
+from src.models.conversation.assistant_turn import AssistantTurn
+from src.models.conversation.playlist_criteria import PlaylistCriteria
+from src.models.conversation.playlist_draft import PlaylistDraft
+from src.models.session.chat_message import ChatMessage
+from src.models.spotify.resolved_track import ResolvedTrack
 from src.prompt import CLARIFICATION_FALLBACK, format_draft_context
-from src.schema import AssistantTurn, ChatMessage, PlaylistCriteria, PlaylistDraft, ResolvedTrack
 
 Intent = Literal["clarify", "propose_playlist", "revise_playlist", "off_topic"]  # Turn intents
 ANIMALS = {"title": "Animals", "artist": "Martin Garrix"}  # A well-known house track

@@ -10,7 +10,7 @@ import pytest
 import respx
 from pytest_mock import MockerFixture
 
-from src.schema import TrackSuggestion
+from src.models.conversation.track_suggestion import TrackSuggestion
 from src.spotify.client import API_BASE_URL
 from src.spotify.matching import normalize
 from src.spotify.resolver import resolve_tracks

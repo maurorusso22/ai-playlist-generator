@@ -10,7 +10,7 @@ from langchain_core.messages import AIMessage, SystemMessage
 from pytest_mock import MockerFixture
 
 from src import intent_gate
-from src.schema import ChatMessage
+from src.models.session.chat_message import ChatMessage
 
 HISTORY = [  # A notice after the assistant reply: it may hold Spotify data, so it is skipped
     ChatMessage(role="user", content="House music please"),

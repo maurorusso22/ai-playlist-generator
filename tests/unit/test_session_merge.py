@@ -6,7 +6,8 @@ import pytest
 
 from src.config.files import Sections
 from src.config.settings import get_settings
-from src.schema import ChatMessage, PendingAction
+from src.models.session.chat_message import ChatMessage
+from src.models.session.pending_action import PendingAction
 from src.session_merge import MUTABLE_FIELDS, expiry, merge_state
 from tests.unit.session_factory import NOW, make_state
 

@@ -10,7 +10,10 @@ import logging
 import streamlit as st
 
 from src import crypto, session_store
-from src.schema import ChatMessage, PendingAction, SessionState, SpotifyTokens
+from src.models.session.chat_message import ChatMessage
+from src.models.session.pending_action import PendingAction
+from src.models.session.session_state import SessionState
+from src.models.spotify.spotify_tokens import SpotifyTokens
 from src.spotify import auth
 from src.spotify import client as spotify_client
 from src.spotify.errors import SpotifyError, SpotifyForbiddenError

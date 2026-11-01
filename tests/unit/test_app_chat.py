@@ -5,7 +5,8 @@ from pytest_mock import MockerFixture
 from streamlit.testing.v1 import AppTest
 
 from src.intent_gate import OUT_OF_SCOPE_REPLY
-from src.schema import AssistantTurn, PlaylistCriteria
+from src.models.conversation.assistant_turn import AssistantTurn
+from src.models.conversation.playlist_criteria import PlaylistCriteria
 from tests.unit.app_builders import draft_state, make_tracks, propose_turn, session
 from tests.unit.app_harness import Mocks, install_mocks, labels, run_app, texts
 from tests.unit.session_factory import make_state

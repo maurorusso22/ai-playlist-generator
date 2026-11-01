@@ -7,8 +7,11 @@ import pytest
 from src.config.files import Sections
 from src.config.settings import get_settings
 from src.criteria import apply_guard, candidate_count, clamp_size, has_minimum_criteria
+from src.models.conversation.assistant_turn import AssistantTurn
+from src.models.conversation.playlist_criteria import PlaylistCriteria
+from src.models.conversation.playlist_draft import PlaylistDraft
+from src.models.conversation.track_suggestion import TrackSuggestion
 from src.prompt import CLARIFICATION_FALLBACK
-from src.schema import AssistantTurn, PlaylistCriteria, PlaylistDraft, TrackSuggestion
 
 HOUSE = PlaylistCriteria(genres=["house"])  # Minimal criteria that satisfy the guard
 Intent = Literal["clarify", "propose_playlist", "revise_playlist", "off_topic"]  # Turn intents

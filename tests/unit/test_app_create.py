@@ -3,7 +3,7 @@
 import pytest
 from pytest_mock import MockerFixture
 
-from src.schema import CreatedPlaylist
+from src.models.session.created_playlist import CreatedPlaylist
 from src.spotify.errors import (
     SpotifyAuthError,
     SpotifyBadRequestError,

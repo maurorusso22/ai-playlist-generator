@@ -2,7 +2,8 @@
 
 import re
 
-from src.schema import CreatedPlaylist, ResolvedTrack
+from src.models.session.created_playlist import CreatedPlaylist
+from src.models.spotify.resolved_track import ResolvedTrack
 from src.ui.playlist_card import attribution_html, card_header_html, safe_url, track_row_html
 from tests.unit.app_builders import make_draft, make_tracks
 

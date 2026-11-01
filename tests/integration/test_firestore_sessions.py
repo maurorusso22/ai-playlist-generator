@@ -16,7 +16,7 @@ from src import session_store
 from src.config.errors import ConfigError
 from src.config.files import load_config
 from src.config.settings import get_settings
-from src.schema import ChatMessage
+from src.models.session.chat_message import ChatMessage
 
 TEST_COLLECTION = "sessions_test"  # Collection used instead of the real one
 

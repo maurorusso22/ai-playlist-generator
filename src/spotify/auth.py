@@ -12,7 +12,7 @@ from pydantic import SecretStr
 
 from src.config.constants import SPOTIFY_SCOPE
 from src.config.settings import get_settings
-from src.schema import SpotifyTokens
+from src.models.spotify.spotify_tokens import SpotifyTokens
 from src.spotify.app_token import get_app_token, post_token
 from src.spotify.errors import SpotifyReauthRequired
 

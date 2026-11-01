@@ -5,7 +5,7 @@ because settings are read lazily and never at import time. Nothing in this modul
 Spotify-resolved data: the LLM only sees conversation text and its own previous draft.
 """
 
-from src.schema import PlaylistDraft
+from src.models.conversation.playlist_draft import PlaylistDraft
 
 SYSTEM_PROMPT = """\
 You are the assistant of AI Playlist Generator, an app that builds music playlists \

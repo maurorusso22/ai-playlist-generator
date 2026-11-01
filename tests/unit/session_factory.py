@@ -3,7 +3,8 @@
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from src.schema import ChatMessage, SessionState
+from src.models.session.chat_message import ChatMessage
+from src.models.session.session_state import SessionState
 
 NOW = datetime(2030, 1, 1, 12, 0, tzinfo=UTC)  # Frozen clock used by session tests
 SID = "8c5a3f2e-1b4d-4c6e-9f0a-2d3b4c5d6e7f"  # Fake canonical UUID4 session id

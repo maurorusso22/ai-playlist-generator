@@ -21,7 +21,9 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from src.config.secrets import get_secrets
 from src.config.settings import get_settings
-from src.schema import AssistantTurn, ChatMessage, PlaylistCriteria
+from src.models.conversation.assistant_turn import AssistantTurn
+from src.models.conversation.playlist_criteria import PlaylistCriteria
+from src.models.session.chat_message import ChatMessage
 
 GATE_TIMEOUT_S = 3.0  # HTTP timeout, also sent as server deadline; past it Gemini answers
 GATE_MAX_RETRIES = 1  # Single attempt: a retry would cost more latency than the gate saves

@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from src.config.errors import ConfigError
 from src.config.secrets import get_secrets
-from src.schema import SpotifyTokens
+from src.models.spotify.spotify_tokens import SpotifyTokens
 
 
 def _fernet() -> Fernet:

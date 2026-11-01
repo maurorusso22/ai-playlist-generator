@@ -13,7 +13,7 @@ import streamlit as st
 from google.api_core.exceptions import GoogleAPIError
 
 from src import browser_session, session_store
-from src.schema import SessionState
+from src.models.session.session_state import SessionState
 from src.ui import errors
 
 SCREEN_KEY = "screen"  # Cached bootstrap result: "landing", "chat" or "expired"

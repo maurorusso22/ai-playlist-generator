@@ -8,7 +8,8 @@ import unicodedata
 from difflib import SequenceMatcher
 from typing import Any
 
-from src.schema import ResolvedTrack, TrackSuggestion
+from src.models.conversation.track_suggestion import TrackSuggestion
+from src.models.spotify.resolved_track import ResolvedTrack
 
 TITLE_WEIGHT = 0.6  # Share of the score from the title, weighted higher than the artist
 ARTIST_WEIGHT = 0.4  # Share of the score from the best-matching artist

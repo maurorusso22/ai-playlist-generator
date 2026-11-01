@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 from src.config.errors import ConfigError
 from src.config.secrets import get_secrets
 from src.config.settings import get_settings
-from src.schema import TrackSuggestion
+from src.models.conversation.track_suggestion import TrackSuggestion
 from src.spotify import auth
 from src.spotify.client import SpotifyClient
 from src.spotify.resolver import resolve_tracks

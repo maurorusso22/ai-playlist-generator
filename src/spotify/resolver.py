@@ -12,7 +12,8 @@ from contextlib import closing
 from typing import Any
 
 from src.config.settings import get_settings
-from src.schema import ResolvedTrack, TrackSuggestion
+from src.models.conversation.track_suggestion import TrackSuggestion
+from src.models.spotify.resolved_track import ResolvedTrack
 from src.spotify import auth
 from src.spotify.client import SpotifyBadRequestError, SpotifyClient
 from src.spotify.matching import best_match, normalize, to_resolved

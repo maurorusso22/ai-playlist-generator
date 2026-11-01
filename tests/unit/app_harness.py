@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 from pytest_mock import MockerFixture
 from streamlit.testing.v1 import AppTest
 
-from src.schema import SessionState
+from src.models.session.session_state import SessionState
 from src.session_merge import merge_state
 from tests.unit.app_builders import clarify_turn, make_tokens
 from tests.unit.session_factory import make_state
