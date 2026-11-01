@@ -19,11 +19,11 @@ from langchain_google_genai.chat_models import ChatGoogleGenerativeAIError
 from src.config.constants import OVERGENERATION_RATIO, PLAYLIST_HARD_MAX_SIZE, PLAYLIST_MIN_SIZE
 from src.config.secrets import get_secrets
 from src.config.settings import get_settings
-from src.criteria import apply_guard, candidate_count, clamp_size
+from src.conversation.criteria import apply_guard, candidate_count, clamp_size
+from src.conversation.prompt import SYSTEM_PROMPT, format_draft_context
 from src.models.conversation.assistant_turn import AssistantTurn
 from src.models.conversation.playlist_draft import PlaylistDraft
 from src.models.session.chat_message import ChatMessage
-from src.prompt import SYSTEM_PROMPT, format_draft_context
 
 HISTORY_MAX_MESSAGES = 20  # Last user/assistant messages sent to the LLM (10 exchanges)
 PARSE_ATTEMPTS = 2  # A structured-output parsing failure is retried once

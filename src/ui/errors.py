@@ -9,8 +9,8 @@ import re
 
 from google.genai.errors import ClientError, ServerError
 
-from src.chain import AssistantUnavailableError
 from src.config.settings import get_settings
+from src.conversation.chain import AssistantUnavailableError
 from src.spotify.errors import (
     SpotifyAuthError,
     SpotifyError,

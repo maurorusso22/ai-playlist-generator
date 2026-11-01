@@ -5,8 +5,7 @@ from typing import Any
 
 from pydantic import SecretStr
 
-from src import crypto
-from src.criteria import candidate_count
+from src.conversation.criteria import candidate_count
 from src.models.conversation.assistant_turn import AssistantTurn
 from src.models.conversation.playlist_criteria import PlaylistCriteria
 from src.models.conversation.playlist_draft import PlaylistDraft
@@ -15,6 +14,7 @@ from src.models.session.pending_action import PendingAction
 from src.models.session.session_state import SessionState
 from src.models.spotify.resolved_track import ResolvedTrack
 from src.models.spotify.spotify_tokens import SpotifyTokens
+from src.session import crypto
 from tests.unit.session_factory import NOW, make_state
 
 

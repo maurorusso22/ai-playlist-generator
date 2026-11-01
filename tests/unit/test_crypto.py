@@ -1,4 +1,4 @@
-"""Unit tests for src/crypto.py (Fernet encryption of Spotify tokens)."""
+"""Unit tests for src/session/crypto.py (Fernet encryption of Spotify tokens)."""
 
 from datetime import UTC, datetime
 
@@ -7,8 +7,8 @@ from cryptography.fernet import Fernet
 
 from src.config.errors import ConfigError
 from src.config.secrets import get_secrets
-from src.crypto import decrypt_tokens, encrypt_tokens
 from src.models.spotify.spotify_tokens import SpotifyTokens
+from src.session.crypto import decrypt_tokens, encrypt_tokens
 
 ACCESS = "plain-access-token-123"  # Recognizable fake access token
 REFRESH = "plain-refresh-token-456"  # Recognizable fake refresh token

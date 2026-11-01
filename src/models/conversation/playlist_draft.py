@@ -1,6 +1,6 @@
 """The LLM's playlist proposal.
 
-Sizes are not constrained here: the guard in `src/criteria.py` clamps them in Python,
+Sizes are not constrained here: the guard in `src/conversation/criteria.py` clamps them in Python,
 whatever the LLM returns.
 """
 

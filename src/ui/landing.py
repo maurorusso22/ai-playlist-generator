@@ -5,7 +5,7 @@ import logging
 import streamlit as st
 from google.api_core.exceptions import GoogleAPIError
 
-from src import session_store
+from src.session import session_store
 from src.ui import errors, login, styles
 from src.ui import state as ui_state
 

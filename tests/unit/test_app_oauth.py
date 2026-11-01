@@ -3,7 +3,7 @@
 import pytest
 from pytest_mock import MockerFixture
 
-from src import crypto
+from src.session import crypto
 from src.spotify.errors import SpotifyForbiddenError
 from src.ui import errors
 from tests.unit.app_builders import draft_state, session

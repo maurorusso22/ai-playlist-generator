@@ -12,7 +12,7 @@ from pytest_mock import MockerFixture
 from streamlit.testing.v1 import AppTest
 
 from src.models.session.session_state import SessionState
-from src.session_merge import merge_state
+from src.session.session_merge import merge_state
 from tests.unit.app_builders import clarify_turn, make_tokens
 from tests.unit.session_factory import make_state
 
@@ -54,10 +54,14 @@ def install_mocks(mocker: MockerFixture) -> Mocks:
     Returns:
         The mocks, for per-test configuration and assertions.
     """
-    bridge, store, auth = "src.browser_session.", "src.session_store.", "src.spotify.auth."
+    bridge, store, auth = (
+        "src.session.browser_session.",
+        "src.session.session_store.",
+        "src.spotify.auth.",
+    )
     mocker.patch(auth + "new_oauth_state", return_value=OAUTH_STATE)
     mocker.patch(auth + "ensure_fresh", side_effect=lambda tokens: tokens)
-    mocker.patch("src.rate_limiter.get_client_ip", return_value="203.0.113.7")
+    mocker.patch("src.guards.rate_limiter.get_client_ip", return_value="203.0.113.7")
     spotify = mocker.patch("src.spotify.client.SpotifyClient").return_value
     spotify.create_playlist.return_value = {"id": PLAYLIST_ID}
     spotify.get_me.return_value = {"id": "user1", "display_name": "Mauro"}
@@ -77,13 +81,13 @@ def install_mocks(mocker: MockerFixture) -> Mocks:
         ),
         delete=mocker.patch(store + "delete_session"),
         expired=mocker.patch(store + "is_expired", return_value=False),
-        run_turn=mocker.patch("src.chain.run_turn", return_value=clarify_turn()),
+        run_turn=mocker.patch("src.conversation.chain.run_turn", return_value=clarify_turn()),
         resolve=mocker.patch("src.spotify.resolver.resolve_tracks", return_value=[]),
         exchange=mocker.patch(auth + "exchange_code", return_value=make_tokens(None)),
         refresh=mocker.patch(auth + "refresh_tokens", side_effect=lambda tokens: tokens),
         spotify=spotify,
-        limited=mocker.patch("src.rate_limiter.is_rate_limited", return_value=False),
-        gate=mocker.patch("src.intent_gate.gate_turn", return_value=None),
+        limited=mocker.patch("src.guards.rate_limiter.is_rate_limited", return_value=False),
+        gate=mocker.patch("src.guards.intent_gate.gate_turn", return_value=None),
     )
 
 

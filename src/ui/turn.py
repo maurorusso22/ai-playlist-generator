@@ -6,13 +6,15 @@ only the stored messages and its own draft; resolved Spotify tracks stay out of 
 
 import streamlit as st
 
-from src import chain, intent_gate, rate_limiter, session_store
+from src.conversation import chain
+from src.guards import intent_gate, rate_limiter
 from src.models.conversation.assistant_turn import AssistantTurn
 from src.models.conversation.playlist_draft import PlaylistDraft
 from src.models.session.chat_message import ChatMessage
 from src.models.session.pending_action import PendingAction
 from src.models.session.session_state import SessionState
 from src.models.spotify.resolved_track import ResolvedTrack
+from src.session import session_store
 from src.spotify import resolver
 from src.spotify.errors import SpotifyError
 from src.ui import errors, styles

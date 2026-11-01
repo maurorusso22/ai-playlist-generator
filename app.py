@@ -11,8 +11,8 @@ import logging
 import streamlit as st
 from google.api_core.exceptions import GoogleAPIError
 
-from src import browser_session, session_store
 from src.config.settings import get_settings
+from src.session import browser_session, session_store
 from src.ui import chat, errors, landing, login, oauth_callback, styles
 from src.ui import state as ui_state
 

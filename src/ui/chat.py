@@ -6,8 +6,8 @@ only raw HTML comes from the playlist card, which escapes every field.
 
 import streamlit as st
 
-from src import crypto
 from src.models.session.session_state import SessionState
+from src.session import crypto
 from src.ui import actions, errors, login, playlist_card, styles, turn
 from src.ui import state as ui_state
 

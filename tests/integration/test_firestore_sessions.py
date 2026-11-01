@@ -12,11 +12,11 @@ from pathlib import Path
 
 import pytest
 
-from src import session_store
 from src.config.errors import ConfigError
 from src.config.files import load_config
 from src.config.settings import get_settings
 from src.models.session.chat_message import ChatMessage
+from src.session import session_store
 
 TEST_COLLECTION = "sessions_test"  # Collection used instead of the real one
 

@@ -15,10 +15,10 @@ from collections.abc import Iterator
 import pytest
 from dotenv import load_dotenv
 
-from src import intent_gate
 from src.config.errors import ConfigError
 from src.config.secrets import get_secrets
 from src.config.settings import get_settings
+from src.guards import intent_gate
 from src.models.session.chat_message import ChatMessage
 
 load_dotenv()

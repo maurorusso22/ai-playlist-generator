@@ -15,7 +15,7 @@ from pydantic import ValidationError
 from src.config.settings import get_settings
 from src.models.session.chat_message import ChatMessage
 from src.models.session.session_state import SessionState
-from src.session_merge import IMMUTABLE_FIELDS, expiry, merge_state
+from src.session.session_merge import IMMUTABLE_FIELDS, expiry, merge_state
 
 SessionStatus = Literal["active", "missing", "expired"]  # Outcome of load_session()
 

@@ -11,7 +11,7 @@ import logging
 import streamlit as st
 from google.api_core.exceptions import GoogleAPIError
 
-from src import browser_session, session_store
+from src.session import browser_session, session_store
 from src.spotify import auth
 from src.ui import errors, styles
 from src.ui import state as ui_state

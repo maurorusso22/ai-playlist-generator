@@ -15,10 +15,10 @@ from collections.abc import Iterator
 import pytest
 from dotenv import load_dotenv
 
-from src.chain import run_turn
 from src.config.errors import ConfigError
 from src.config.secrets import get_secrets
 from src.config.settings import get_settings
+from src.conversation.chain import run_turn
 from src.models.conversation.assistant_turn import AssistantTurn
 
 load_dotenv()

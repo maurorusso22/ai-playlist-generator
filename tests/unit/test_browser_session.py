@@ -1,4 +1,4 @@
-"""Unit tests for src/browser_session.py with the js-eval bridge and session_state patched."""
+"""Unit tests for src/session/browser_session.py (js-eval bridge and session_state patched)."""
 
 import json
 from typing import Any
@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
-from src import browser_session
+from src.session import browser_session
 from tests.unit.session_factory import SID
 
 
@@ -21,8 +21,8 @@ def bridge(mocker: MockerFixture) -> MagicMock:
     Returns:
         The mocked `streamlit_js_eval` function.
     """
-    mocker.patch("src.browser_session.st.session_state", {})
-    mock: MagicMock = mocker.patch("src.browser_session.streamlit_js_eval")
+    mocker.patch("src.session.browser_session.st.session_state", {})
+    mock: MagicMock = mocker.patch("src.session.browser_session.streamlit_js_eval")
     return mock
 
 
@@ -36,7 +36,7 @@ def markdown(mocker: MockerFixture) -> MagicMock:
     Returns:
         The mocked `st.markdown` function.
     """
-    mock: MagicMock = mocker.patch("src.browser_session.st.markdown")
+    mock: MagicMock = mocker.patch("src.session.browser_session.st.markdown")
     return mock
 
 

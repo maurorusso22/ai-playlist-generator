@@ -12,11 +12,11 @@ from urllib.parse import quote
 import streamlit as st
 from google.api_core.exceptions import GoogleAPIError
 
-from src import crypto, session_store
 from src.models.session.chat_message import ChatMessage
 from src.models.session.created_playlist import CreatedPlaylist
 from src.models.session.pending_action import PendingAction
 from src.models.spotify.spotify_tokens import SpotifyTokens
+from src.session import crypto, session_store
 from src.spotify import auth
 from src.spotify import client as spotify_client
 from src.spotify.errors import (

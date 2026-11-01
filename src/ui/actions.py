@@ -8,8 +8,8 @@ Spotify calls run, so a second click cannot start a second creation.
 
 import streamlit as st
 
-from src import session_store
 from src.models.session.session_state import SessionState
+from src.session import session_store
 from src.ui import login, spotify_save
 from src.ui import state as ui_state
 

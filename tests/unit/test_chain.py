@@ -11,13 +11,13 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_google_genai.chat_models import GoogleRateLimitError
 from pytest_mock import MockerFixture
 
-from src import chain
+from src.conversation import chain
+from src.conversation.prompt import CLARIFICATION_FALLBACK, format_draft_context
 from src.models.conversation.assistant_turn import AssistantTurn
 from src.models.conversation.playlist_criteria import PlaylistCriteria
 from src.models.conversation.playlist_draft import PlaylistDraft
 from src.models.session.chat_message import ChatMessage
 from src.models.spotify.resolved_track import ResolvedTrack
-from src.prompt import CLARIFICATION_FALLBACK, format_draft_context
 
 Intent = Literal["clarify", "propose_playlist", "revise_playlist", "off_topic"]  # Turn intents
 ANIMALS = {"title": "Animals", "artist": "Martin Garrix"}  # A well-known house track
@@ -56,7 +56,7 @@ def invoke(mocker: MockerFixture) -> Iterator[MagicMock]:
         The mocked `invoke`, yielded; the lazily built LLM cache is cleared around each test.
     """
     chain._build_llm.cache_clear()
-    llm_cls = mocker.patch("src.chain.ChatGoogleGenerativeAI")
+    llm_cls = mocker.patch("src.conversation.chain.ChatGoogleGenerativeAI")
     yield llm_cls.return_value.with_structured_output.return_value.invoke
     chain._build_llm.cache_clear()
 

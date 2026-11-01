@@ -1,4 +1,4 @@
-"""Unit tests for src/session_store.py with the Firestore client mocked and the clock frozen."""
+"""Unit tests for src/session/session_store.py (Firestore client mocked, clock frozen)."""
 
 from collections.abc import Iterator
 from datetime import timedelta
@@ -7,13 +7,13 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
-from src import session_store
-from src.crypto import encrypt_tokens
 from src.models.conversation.playlist_draft import PlaylistDraft
 from src.models.session.chat_message import ChatMessage
 from src.models.session.pending_action import PendingAction
 from src.models.spotify.resolved_track import ResolvedTrack
 from src.models.spotify.spotify_tokens import SpotifyTokens
+from src.session import session_store
+from src.session.crypto import encrypt_tokens
 from tests.unit.session_factory import NOW, SID
 from tests.unit.session_factory import make_state as _state
 
@@ -29,8 +29,8 @@ def collection(mocker: MockerFixture) -> Iterator[MagicMock]:
         The mocked sessions CollectionReference.
     """
     session_store._client.cache_clear()
-    client_cls = mocker.patch("src.session_store.firestore.Client")
-    mocker.patch("src.session_store._now", return_value=NOW)
+    client_cls = mocker.patch("src.session.session_store.firestore.Client")
+    mocker.patch("src.session.session_store._now", return_value=NOW)
     yield client_cls.return_value.collection.return_value
     session_store._client.cache_clear()
 

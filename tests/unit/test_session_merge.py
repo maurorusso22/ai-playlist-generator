@@ -1,4 +1,4 @@
-"""Unit tests for src/session_merge.py (pure session-state rules, no Firestore)."""
+"""Unit tests for src/session/session_merge.py (pure session-state rules, no Firestore)."""
 
 from datetime import timedelta
 
@@ -8,7 +8,7 @@ from src.config.files import Sections
 from src.config.settings import get_settings
 from src.models.session.chat_message import ChatMessage
 from src.models.session.pending_action import PendingAction
-from src.session_merge import MUTABLE_FIELDS, expiry, merge_state
+from src.session.session_merge import MUTABLE_FIELDS, expiry, merge_state
 from tests.unit.session_factory import NOW, make_state
 
 

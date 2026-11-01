@@ -1,4 +1,4 @@
-"""Unit tests for src/intent_gate.py: fail-open out-of-scope gating with a mocked Gemma."""
+"""Unit tests for src/guards/intent_gate.py: fail-open out-of-scope gating with a mocked Gemma."""
 
 import logging
 from collections.abc import Iterator
@@ -9,7 +9,7 @@ from google.genai.errors import ClientError
 from langchain_core.messages import AIMessage, SystemMessage
 from pytest_mock import MockerFixture
 
-from src import intent_gate
+from src.guards import intent_gate
 from src.models.session.chat_message import ChatMessage
 
 HISTORY = [  # A notice after the assistant reply: it may hold Spotify data, so it is skipped
@@ -30,7 +30,7 @@ def gemma(mocker: MockerFixture) -> Iterator[MagicMock]:
         The patched model class, yielded; the lazily built gate is cleared around each test.
     """
     intent_gate._build_gate.cache_clear()
-    llm_cls = mocker.patch("src.intent_gate.ChatGoogleGenerativeAI")
+    llm_cls = mocker.patch("src.guards.intent_gate.ChatGoogleGenerativeAI")
     llm_cls.return_value.invoke.return_value = AIMessage(content="IN")
     yield llm_cls
     intent_gate._build_gate.cache_clear()
@@ -87,7 +87,7 @@ def test_failures_fail_open_and_are_logged(
 ) -> None:
     """Quota errors, timeouts and anything else let the message through, with a warning."""
     gemma.return_value.invoke.side_effect = error
-    with caplog.at_level(logging.WARNING, logger="src.intent_gate"):
+    with caplog.at_level(logging.WARNING, logger="src.guards.intent_gate"):
         assert intent_gate.gate_turn("Some techno", []) is None
     assert "failed open" in caplog.text
 
@@ -95,7 +95,7 @@ def test_failures_fail_open_and_are_logged(
 def test_unexpected_answer_is_logged(gemma: MagicMock, caplog: pytest.LogCaptureFixture) -> None:
     """An answer that is neither IN nor OUT is logged, so a broken gate is visible."""
     _answer(gemma, "Sure! Here is a playlist")
-    with caplog.at_level(logging.WARNING, logger="src.intent_gate"):
+    with caplog.at_level(logging.WARNING, logger="src.guards.intent_gate"):
         assert intent_gate.gate_turn("Some techno", []) is None
     assert "unexpected answer" in caplog.text
 

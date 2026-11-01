@@ -1,8 +1,8 @@
 """System prompt, clarification fallback and draft serialization for the conversation engine.
 
-`SYSTEM_PROMPT` is a template: `src/chain.py` fills it with the size settings on every call,
-because settings are read lazily and never at import time. Nothing in this module may accept
-Spotify-resolved data: the LLM only sees conversation text and its own previous draft.
+`SYSTEM_PROMPT` is a template: `src/conversation/chain.py` fills it with the size settings on
+every call, because settings are read lazily and never at import time. Nothing in this module
+may accept Spotify-resolved data: the LLM only sees conversation text and its own previous draft.
 """
 
 from src.models.conversation.playlist_draft import PlaylistDraft

@@ -1,14 +1,14 @@
-"""Unit tests for src/rate_limiter.py (defaults: 12 messages per sliding 60 s per IP)."""
+"""Unit tests for src/guards/rate_limiter.py (defaults: 12 messages per sliding 60 s per IP)."""
 
 from collections.abc import Iterator
 
 import pytest
 from pytest_mock import MockerFixture
 
-from src import rate_limiter
 from src.config.files import Sections
 from src.config.settings import get_settings
-from src.rate_limiter import get_client_ip, is_rate_limited
+from src.guards import rate_limiter
+from src.guards.rate_limiter import get_client_ip, is_rate_limited
 
 LIMIT = 12  # rate_limit.max_requests in config/base.toml
 WINDOW = 60.0  # rate_limit.window in config/base.toml, in seconds
@@ -25,7 +25,7 @@ def clock(mocker: MockerFixture) -> Iterator[list[float]]:
         A one-item list holding the current time; tests advance it by assigning `clock[0]`.
     """
     now = [1000.0]
-    mocker.patch("src.rate_limiter.time").monotonic.side_effect = lambda: now[0]
+    mocker.patch("src.guards.rate_limiter.time").monotonic.side_effect = lambda: now[0]
     rate_limiter._request_log.cache_clear()
     yield now
     rate_limiter._request_log.cache_clear()
@@ -38,7 +38,7 @@ def _headers(mocker: MockerFixture, forwarded: str | None) -> None:
         mocker: Pytest-mock fixture.
         forwarded: Header value, or None when absent.
     """
-    fake = mocker.patch("src.rate_limiter.st")
+    fake = mocker.patch("src.guards.rate_limiter.st")
     fake.context.headers.get.side_effect = lambda name: (
         forwarded if name == "X-Forwarded-For" else None
     )

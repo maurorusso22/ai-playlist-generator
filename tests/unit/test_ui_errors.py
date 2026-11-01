@@ -3,7 +3,7 @@
 import pytest
 from google.genai.errors import ClientError, ServerError
 
-from src.chain import AssistantUnavailableError
+from src.conversation.chain import AssistantUnavailableError
 from src.spotify.errors import (
     SpotifyAuthError,
     SpotifyBadRequestError,
