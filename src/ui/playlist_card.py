@@ -19,7 +19,8 @@ from src.ui import styles
 TRACK_URL_PREFIX = "https://open.spotify.com/"  # Only links to Spotify's web player are kept
 IMAGE_URL_PREFIX = "https://i.scdn.co/"  # Only Spotify's image CDN is kept
 COLLAPSED_ROWS = 5  # Rows visible before the "Show all" expander
-COVER_PX = 64  # Rendered album cover size
+COVER_PX = 56  # Rendered album cover size
+CARD_KEY = "playlist_card"  # Container key; styles.css draws the card on its st-key class
 SPOTIFY_LOGOS = (  # Official Spotify logo files, added by hand; the first present is shown
     styles.PUBLIC_DIR / "spotify_logo.svg",
     styles.PUBLIC_DIR / "spotify_logo.png",
@@ -43,11 +44,13 @@ def safe_url(url: str | None, prefix: str) -> str | None:
 
 
 def track_row_html(track: ResolvedTrack, index: int) -> str:
-    """Build one track row: cover, title (linked to Spotify), artists and not-found badge.
+    """Build one track row: number, cover, title (linked to Spotify), artists, not-found badge.
+
+    A row without artwork gets a dashed placeholder; the artwork itself is never styled.
 
     Args:
         track: A resolved (or flagged not-found) track.
-        index: Position in the card, used for the staggered fade-in delay.
+        index: Position in the card, used for the number and the staggered fade-in delay.
 
     Returns:
         The escaped row markup on a single line.
@@ -57,26 +60,31 @@ def track_row_html(track: ResolvedTrack, index: int) -> str:
     image = safe_url(track.image_url, IMAGE_URL_PREFIX)
     alt = html.escape(track.album or track.name, quote=True)
     cover = (
-        f'<img src="{image}" alt="{alt}" width="{COVER_PX}" height="{COVER_PX}">' if image else ""
+        f'<div class="apg-cover"><img src="{image}" alt="{alt}" '
+        f'width="{COVER_PX}" height="{COVER_PX}"></div>'
+        if image
+        else '<div class="apg-cover apg-cover-empty" aria-hidden="true"></div>'
     )
     link = safe_url(track.external_url, TRACK_URL_PREFIX) if track.found else None
     if link:
         title = f'<a href="{link}" target="_blank" rel="noopener noreferrer">{title}</a>'
-    badge = "" if track.found else '<span class="apg-missing-badge">not found on Spotify</span>'
+    badge = "" if track.found else '<span class="apg-missing-badge">Not on Spotify</span>'
     row_class = "apg-row" if track.found else "apg-row apg-missing"
     return (
-        f'<div class="{row_class}" style="--i:{int(index)}"><div class="apg-cover">{cover}</div>'
+        f'<div class="{row_class}" style="--i:{int(index)}">'
+        f'<span class="apg-num">{int(index) + 1}</span>{cover}'
         f'<div class="apg-track"><div class="apg-title">{title}</div>'
-        f'<div class="apg-artist">{artists}</div></div>{badge}</div>'
+        f'<div class="apg-artist">{artists}</div>{badge}</div></div>'
     )
 
 
-def card_header_html(draft: PlaylistDraft, tracks: list[ResolvedTrack]) -> str:
-    """Build the card header: title, description and the found/not-found counts.
+def card_header_html(draft: PlaylistDraft, tracks: list[ResolvedTrack], saved: bool) -> str:
+    """Build the card header: status chip, title, description and the found/not-found counts.
 
     Args:
         draft: The LLM's draft (title and description).
         tracks: Resolved tracks, not-found entries included.
+        saved: Whether the playlist is already created on Spotify with its tracks.
 
     Returns:
         The escaped header markup.
@@ -84,8 +92,10 @@ def card_header_html(draft: PlaylistDraft, tracks: list[ResolvedTrack]) -> str:
     found = sum(track.found for track in tracks)
     missing = len(tracks) - found
     meta = f"{found} tracks" + (f" · {missing} not found on Spotify" if missing else "")
+    chip = "On Spotify" if saved else "Draft"
     return (
-        f'<div class="apg-card-head"><div class="apg-card-title">{html.escape(draft.title)}</div>'
+        f'<div class="apg-card-head"><div><span class="apg-chip">{chip}</span></div>'
+        f'<div class="apg-card-title">{html.escape(draft.title)}</div>'
         f'<div class="apg-card-desc">{html.escape(draft.description)}</div>'
         f'<div class="apg-card-meta">{meta}</div></div>'
     )
@@ -113,19 +123,20 @@ def render_playlist_card(state: SessionState) -> None:
     """Render the card of the current draft under its message.
 
     The first COLLAPSED_ROWS rows are always visible; the expander holding the rest is
-    rendered only when there are more rows than that.
+    rendered only when there are more rows than that. A keyed container draws the card, so
+    the expander and the attribution sit inside it.
 
     Args:
         state: The session holding the draft and its resolved tracks.
     """
     if state.draft is None:
         return
-    tracks = state.resolved_tracks
+    tracks, created = state.resolved_tracks, state.created_playlist
     rows = [track_row_html(track, index) for index, track in enumerate(tracks)]
-    head = card_header_html(state.draft, tracks)
-    visible = "".join(rows[:COLLAPSED_ROWS])
-    st.markdown(f'<div class="apg-card">{head}{visible}</div>', unsafe_allow_html=True)
-    if len(rows) > COLLAPSED_ROWS:
-        with st.expander(f"Show all {len(rows)} tracks"):
-            st.markdown("".join(rows[COLLAPSED_ROWS:]), unsafe_allow_html=True)
-    st.markdown(attribution_html(state.created_playlist), unsafe_allow_html=True)
+    head = card_header_html(state.draft, tracks, saved=bool(created and created.items_added))
+    with st.container(key=CARD_KEY):
+        st.markdown(f"{head}{''.join(rows[:COLLAPSED_ROWS])}", unsafe_allow_html=True)
+        if len(rows) > COLLAPSED_ROWS:
+            with st.expander(f"Show all {len(rows)} tracks"):
+                st.markdown("".join(rows[COLLAPSED_ROWS:]), unsafe_allow_html=True)
+        st.markdown(attribution_html(created), unsafe_allow_html=True)

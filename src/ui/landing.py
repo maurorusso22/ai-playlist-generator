@@ -1,5 +1,6 @@
-"""Landing screen (FR-01): logo, tagline, three steps and the two entry points."""
+"""Landing screen (FR-01): logo, headline, three steps, the two entry points and the notes."""
 
+import html
 import logging
 
 import streamlit as st
@@ -9,11 +10,17 @@ from src.session import session_store
 from src.ui import errors, login, styles
 from src.ui import state as ui_state
 
-TAGLINE = "Describe the music you want. Get a Spotify-ready playlist in seconds."  # Hero line
-STEPS = (  # Title and text of the three step cards
-    ("1 · Describe", "A genre, a mood, an era, an artist, an album or a song."),
-    ("2 · Review", "Refine the draft in the chat until it sounds right."),
-    ("3 · Save", "Create it as a private playlist on your Spotify account."),
+HEADLINE = "Describe the music you want"  # Hero heading; its period is drawn in the accent color
+TAGLINE = "Get a Spotify-ready playlist in seconds."  # Line under the hero heading
+STEPS = (  # Title and text of the three numbered steps
+    ("Describe", "A genre, a mood, an era, an artist, an album or a song."),
+    ("Review", "Refine the draft in the chat until it sounds right."),
+    ("Save", "Create it as a private playlist on your Spotify account."),
+)
+INFO_ICON = (  # Stroke icon in front of the notes, decorative
+    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+    'stroke-width="2" stroke-linecap="round" aria-hidden="true">'
+    '<circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg>'
 )
 INVITE_NOTE = (  # Spotify Development Mode limit, explained before the login
     "Spotify login is invite-only (development mode, up to 5 users). "
@@ -41,22 +48,33 @@ def start_guest() -> None:
 
 
 def hero_html() -> str:
-    """Build the hero block and the three step cards (static text only).
+    """Build the brand line, the hero heading and the numbered steps (static text only).
 
     Returns:
         The landing markup.
     """
     steps = "".join(
-        f'<div class="apg-step"><div class="apg-step-title">{title}</div>'
-        f'<div class="apg-step-text">{text}</div></div>'
-        for title, text in STEPS
+        f'<li><span class="apg-step-num">{number}</span>'
+        f'<span class="apg-step-title">{title}</span>'
+        f'<span class="apg-step-text">{text}</span></li>'
+        for number, (title, text) in enumerate(STEPS, start=1)
     )
     return (
-        f'<div class="apg-hero">{styles.logo_html(88)}'
-        '<div class="apg-hero-name">AI Playlist Generator</div>'
+        f'{styles.brand_html(large=True)}<div class="apg-hero">'
+        f'<div class="apg-hero-title" role="heading" aria-level="1">{HEADLINE}<span>.</span></div>'
         f'<div class="apg-tagline">{TAGLINE}</div></div>'
-        f'<div class="apg-steps">{steps}</div>'
+        f'<ol class="apg-steps">{steps}</ol>'
     )
+
+
+def notes_html() -> str:
+    """Build the invite-only and privacy notes shown under the entry points.
+
+    Returns:
+        The notes box markup.
+    """
+    notes = "".join(f"<p>{html.escape(note)}</p>" for note in (INVITE_NOTE, PRIVACY_NOTE))
+    return f'<div class="apg-notes">{INFO_ICON}<div>{notes}</div></div>'
 
 
 def render_landing() -> None:
@@ -68,5 +86,4 @@ def render_landing() -> None:
         "Continue with Spotify", key="landing_spotify", on_click=login.start_login, width="stretch"
     )
     guest.button("Use as a Guest", key="landing_guest", on_click=start_guest, width="stretch")
-    st.caption(INVITE_NOTE)
-    st.caption(PRIVACY_NOTE)
+    st.markdown(notes_html(), unsafe_allow_html=True)

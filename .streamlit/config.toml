@@ -1,10 +1,29 @@
-# Dark violet theme; Spotify green (#1DB954) is applied in CSS to Spotify-branded buttons only.
+# "Daylight" theme: light by default, dark when the OS prefers it. With both [theme.light] and
+# [theme.dark] set, Streamlit follows prefers-color-scheme, the same signal public/styles.css uses.
+# Spotify green (#1DB954) is applied in CSS to Spotify-branded buttons only.
+# Font URLs must not contain commas: Streamlit reads `font` as a comma-separated fallback list.
 [theme]
-base = "dark"
-primaryColor = "#A855F7"
-backgroundColor = "#0B0614"
-secondaryBackgroundColor = "#1A1030"
-textColor = "#EDE9FE"
+font = "Figtree:https://fonts.googleapis.com/css2?family=Figtree:wght@400..800&display=swap"
+headingFont = "Bricolage Grotesque:https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400..800&display=swap"
+baseRadius = "0.75rem"
+buttonRadius = "full"
+showWidgetBorder = true
+
+[theme.light]
+primaryColor = "#2E4BFF"
+backgroundColor = "#F4F5F7"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#0B0C0E"
+borderColor = "#D9DCE2"
+linkColor = "#1E34C8"
+
+[theme.dark]
+primaryColor = "#3D58FF"
+backgroundColor = "#0E1014"
+secondaryBackgroundColor = "#171A21"
+textColor = "#F2F4F7"
+borderColor = "#2A2F3A"
+linkColor = "#B9C3FF"
 
 [client]
 toolbarMode = "minimal"

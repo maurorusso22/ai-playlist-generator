@@ -13,11 +13,11 @@ from pathlib import Path
 import streamlit as st
 
 PUBLIC_DIR = Path(__file__).resolve().parents[2] / "public"  # Static assets folder
-STYLESHEET = PUBLIC_DIR / "styles.css"  # Theme, glass surfaces, animations
+STYLESHEET = PUBLIC_DIR / "styles.css"  # Light/dark tokens, surfaces, animations
 LOGO = PUBLIC_DIR / "logo.svg"  # App logo authored for this project
 EQUALIZER_BARS = 4  # Bars in the typing indicator
 CONFETTI_PIECES = 36  # Confetti pieces dropped when a playlist is created
-CONFETTI_COLORS = ("#A855F7", "#C084FC", "#7C3AED", "#EDE9FE", "#D946EF")  # Violet palette
+CONFETTI_COLORS = ("#2E4BFF", "#8C9BFF", "#E4572E", "#F2B33D", "#4C9F70")  # Cobalt and warm tones
 MIME_TYPES = {".svg": "image/svg+xml", ".png": "image/png"}  # Asset types embeddable inline
 
 
@@ -64,13 +64,17 @@ def logo_html(size: int) -> str:
     return f'<img src="{uri}" alt="AI Playlist Generator logo" width="{size}" height="{size}">'
 
 
-def brand_html() -> str:
-    """Build the compact brand line shown in the chat header.
+def brand_html(large: bool = False) -> str:
+    """Build the brand line: compact in the chat header, larger on the landing.
+
+    Args:
+        large: Whether to render the landing size.
 
     Returns:
         The logo and the app name.
     """
-    return f'<div class="apg-brand">{logo_html(28)}<span>AI Playlist Generator</span></div>'
+    size, css_class = (40, "apg-brand large") if large else (30, "apg-brand")
+    return f'<div class="{css_class}">{logo_html(size)}<span>AI Playlist Generator</span></div>'
 
 
 def equalizer_html() -> str:
@@ -116,5 +120,5 @@ def confetti_html() -> str:
 
 
 def celebrate() -> None:
-    """Drop violet confetti once; hidden by the stylesheet under reduced motion."""
+    """Drop confetti once; hidden by the stylesheet under reduced motion."""
     st.markdown(confetti_html(), unsafe_allow_html=True)

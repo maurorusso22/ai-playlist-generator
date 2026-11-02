@@ -40,13 +40,13 @@ def _header(state: SessionState) -> None:
     Args:
         state: The cached session.
     """
-    brand, mode, login_col, new_col = st.columns([3, 3, 3, 2], vertical_alignment="center")
-    brand.markdown(styles.brand_html(), unsafe_allow_html=True)
-    with mode:
-        st.badge(mode_label(state), icon=":material/account_circle:", color="violet")
-    if state.mode == "guest":
-        login_col.button("Log in with Spotify", key="header_login", on_click=login.start_login)
-    new_col.button("New chat", key="new_chat", on_click=ui_state.start_new_chat)
+    # A wrapping flex row: the brand takes the free space, the rest sizes to its content.
+    with st.container(horizontal=True, vertical_alignment="center"):
+        st.markdown(styles.brand_html(), unsafe_allow_html=True, width="stretch")
+        st.badge(mode_label(state), icon=":material/account_circle:", color="gray")
+        if state.mode == "guest":
+            st.button("Log in with Spotify", key="header_login", on_click=login.start_login)
+        st.button("New chat", key="new_chat", on_click=ui_state.start_new_chat)
 
 
 def _history(state: SessionState, show_actions: bool) -> None:
