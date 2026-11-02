@@ -1,5 +1,5 @@
 /* AI Playlist Generator theme: dark violet glass, loaded by src/ui/styles.py.
-   Album artwork is never styled: no rule targets <img> inside track rows, and every
+   Album artwork is never styled: no rule targets img elements inside track rows, and every
    animation applies to containers only. Spotify green is reserved for Spotify buttons. */
 
 :root {

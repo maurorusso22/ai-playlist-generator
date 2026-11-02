@@ -6,6 +6,7 @@ animation is disabled by the stylesheet under `prefers-reduced-motion`.
 """
 
 import base64
+import re
 from functools import lru_cache
 from pathlib import Path
 
@@ -21,7 +22,14 @@ MIME_TYPES = {".svg": "image/svg+xml", ".png": "image/png"}  # Asset types embed
 
 
 def inject_styles() -> None:
-    """Load the stylesheet; style-only HTML goes to Streamlit's event container (no gap)."""
+    """Load the stylesheet; style-only HTML goes to Streamlit's event container (no gap).
+
+    The file must never contain "<" followed by a letter, "/" or "!", even in a comment:
+    Streamlit sanitizes `st.html` with DOMPurify, which then drops the whole style element.
+    """
+    css = STYLESHEET.read_text(encoding="utf-8")
+    if re.search(r"<[/\w!]", css):
+        raise ValueError(f"{STYLESHEET.name} contains markup that DOMPurify would strip")
     st.html(STYLESHEET)
 
 
