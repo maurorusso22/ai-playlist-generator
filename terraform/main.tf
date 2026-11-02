@@ -217,6 +217,8 @@ resource "google_cloud_run_v2_service" "app" {
           cpu    = "1"
           memory = "512Mi"
         }
+        # Request-based billing: with explicit limits the provider defaults to always-on CPU.
+        cpu_idle = true
       }
 
       dynamic "env" {
