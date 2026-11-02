@@ -365,6 +365,7 @@ ai-playlist-generator/
 │   ├── variables.tf
 │   └── outputs.tf
 ├── docs/
+│   ├── deployment-00-overview.md … deployment-07-troubleshooting.md  # Deployment runbook, one file per phase
 │   └── plan.md                 # Implementation plan — not committed
 └── .github/workflows/deploy.yml  # Test + deploy on push to main
 ```
@@ -529,6 +530,8 @@ python -m scripts.spotify_spike
 The deployment process uses **Terraform** for infrastructure and **Docker** for containerization, staying within the **Google Cloud Free Tier**.
 
 > Replace `YOUR_PROJECT_ID` with your GCP project ID throughout.
+
+> A phase-by-phase runbook with a verification step after each command, estimated timings and the fixes for the issues met in practice is in [`docs/deployment-00-overview.md`](docs/deployment-00-overview.md).
 
 ---
 
