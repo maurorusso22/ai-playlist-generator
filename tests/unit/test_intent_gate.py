@@ -111,6 +111,7 @@ def test_model_is_tuned_for_a_fast_one_word_answer(gemma: MagicMock) -> None:
         max_tokens=intent_gate.GATE_MAX_TOKENS,
         timeout=intent_gate.GATE_TIMEOUT_S,
         max_retries=1,
+        additional_headers={"X-Server-Timeout": "10"},
     )
 
 

@@ -26,7 +26,8 @@ from src.models.conversation.assistant_turn import AssistantTurn
 from src.models.conversation.playlist_criteria import PlaylistCriteria
 from src.models.session.chat_message import ChatMessage
 
-GATE_TIMEOUT_S = 3.0  # HTTP timeout, also sent as server deadline; past it Gemini answers
+GATE_TIMEOUT_S = 3.0  # Client-side HTTP timeout; past it the gate fails open and Gemini answers
+GATE_SERVER_DEADLINE_S = 10  # Server deadline header: the API rejects deadlines below 10 s
 GATE_MAX_RETRIES = 1  # Single attempt: a retry would cost more latency than the gate saves
 GATE_MAX_TOKENS = 8  # The answer is one word (IN or OUT); small headroom, no rambling
 MAX_GATED_CHARS = 2000  # Longer messages skip the gate rather than being judged truncated
@@ -46,6 +47,10 @@ _FIRST_WORD = re.compile(r"[A-Za-z]+")  # First word of the answer, ignoring pun
 def _build_gate() -> ChatGoogleGenerativeAI:
     """Build the Gemma classifier once, lazily (settings are never read at import time).
 
+    google-genai sends the client timeout as the `X-Server-Timeout` deadline unless that
+    header is already set, and the API rejects deadlines under 10 s with a 400. Setting the
+    header explicitly keeps the short client-side timeout while sending a valid deadline.
+
     Returns:
         A chat model tuned for a fast, deterministic one-word answer.
     """
@@ -57,6 +62,7 @@ def _build_gate() -> ChatGoogleGenerativeAI:
         max_tokens=GATE_MAX_TOKENS,
         timeout=GATE_TIMEOUT_S,
         max_retries=GATE_MAX_RETRIES,
+        additional_headers={"X-Server-Timeout": str(GATE_SERVER_DEADLINE_S)},
     )
 
 
