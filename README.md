@@ -141,7 +141,7 @@ sequenceDiagram
 > **Data boundary.** Spotify-resolved data is stored separately from the conversation and used only for display and playlist creation. The LLMs only ever see the user's messages and Gemini's own previous replies and drafts. For guests, the card is followed by a **"Log in with Spotify to save"** button; after the OAuth round-trip the same confirmation buttons appear.
 
 ### 1. Conversation Engine
-Implemented in `src/guards/intent_gate.py`, `src/conversation/chain.py`, `src/conversation/prompt.py`, `src/models/conversation/` and `src/conversation/criteria.py`:
+Implemented in `src/guards/intent_gate.py`, `src/guards/gate_prompt.py`, `src/conversation/chain.py`, `src/conversation/prompt.py`, `src/models/conversation/` and `src/conversation/criteria.py`:
 * **Intent gate (fail-open):** before Gemini, **Gemma 4 26B** (`gemma-4-26b-a4b-it`, a separate and larger free-tier quota) classifies the new message, with the assistant's last text reply as context, and answers one word. Only an unambiguous `OUT` blocks it: the user gets a fixed off-topic reply, saved like a normal turn, and Gemini is not called. Any other answer, an error, a `429` or the 3-second timeout lets the message through, and messages over 2,000 characters skip the gate. The gate runs with thinking set to `minimal`, temperature 0, a single attempt and a few output tokens. It is deliberately lazy: a missed off-topic message costs one Gemini request (and Gemini still declines it), while a blocked legitimate one would break the product.
 * **One Gemini call per user turn** through LangChain's `ChatGoogleGenerativeAI.with_structured_output`, using **Gemini 3.5 Flash-Lite** via a [Google AI Studio](https://aistudio.google.com/apikey) API key. The response is parsed into an `AssistantTurn` Pydantic model instead of free text:
 
@@ -329,6 +329,7 @@ ai-playlist-generator/
 │   │   ├── criteria.py         # Minimum-criteria guard (≥ 1 of 6 references)
 │   │   └── title.py            # Playlist title clean-up (length cap, blank fallback)
 │   ├── guards/                 # Quota protection in front of Gemini
+│   │   ├── gate_prompt.py      # Lenient IN/OUT system prompt of the intent gate
 │   │   ├── intent_gate.py      # Fail-open Gemma filter for off-topic messages
 │   │   └── rate_limiter.py     # Per-IP sliding-window rate limiting (in memory)
 │   ├── session/                # Session persistence
