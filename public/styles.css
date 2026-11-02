@@ -97,6 +97,34 @@
   min-height: 3.5rem;
   font-size: 1.05rem;
 }
+
+/* Official Spotify icon on Spotify buttons. Its circle fills ~92% of the 24px box, above
+   Spotify's 21px digital minimum; gap and button height keep half its height clear around it. */
+.st-key-header_login button,
+.st-key-new_chat button,
+[class*="st-key-login_to_save_"] button,
+[class*="st-key-create_"] button,
+[class*="st-key-not_now_"] button {
+  min-height: 3rem;
+}
+.st-key-landing_spotify button p,
+.st-key-header_login button p,
+[class*="st-key-login_to_save_"] button p,
+[class*="st-key-create_"] button p {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.st-key-landing_spotify button p::before,
+.st-key-header_login button p::before,
+[class*="st-key-login_to_save_"] button p::before,
+[class*="st-key-create_"] button p::before {
+  content: "";
+  flex: none;
+  width: 24px;
+  height: 24px;
+  background: var(--apg-spotify-icon) center / contain no-repeat;
+}
 [data-testid="stChatInputSubmitButton"] {
   background: var(--apg-accent);
   color: var(--apg-on-accent);

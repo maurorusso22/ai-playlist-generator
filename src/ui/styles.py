@@ -15,6 +15,7 @@ import streamlit as st
 PUBLIC_DIR = Path(__file__).resolve().parents[2] / "public"  # Static assets folder
 STYLESHEET = PUBLIC_DIR / "styles.css"  # Light/dark tokens, surfaces, animations
 LOGO = PUBLIC_DIR / "logo.svg"  # App logo authored for this project
+SPOTIFY_ICON = PUBLIC_DIR / "spotify_icon.svg"  # Official black Spotify icon, kept unmodified
 EQUALIZER_BARS = 4  # Bars in the typing indicator
 CONFETTI_PIECES = 36  # Confetti pieces dropped when a playlist is created
 CONFETTI_COLORS = ("#2E4BFF", "#8C9BFF", "#E4572E", "#F2B33D", "#4C9F70")  # Cobalt and warm tones
@@ -26,11 +27,16 @@ def inject_styles() -> None:
 
     The file must never contain "<" followed by a letter, "/" or "!", even in a comment:
     Streamlit sanitizes `st.html` with DOMPurify, which then drops the whole style element.
+    The Spotify icon is exposed as the `--apg-spotify-icon` variable, base64-encoded so the
+    same rule holds for it.
     """
     css = STYLESHEET.read_text(encoding="utf-8")
     if re.search(r"<[/\w!]", css):
         raise ValueError(f"{STYLESHEET.name} contains markup that DOMPurify would strip")
     st.html(STYLESHEET)
+    icon = data_uri(SPOTIFY_ICON)
+    if icon is not None:
+        st.html(f'<style>:root{{--apg-spotify-icon:url("{icon}")}}</style>')
 
 
 @lru_cache(maxsize=4)
