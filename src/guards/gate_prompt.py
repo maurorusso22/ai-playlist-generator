@@ -11,12 +11,14 @@ occasions, revises them, and chats about music.
 Classify the latest user message. Answer with exactly one word: IN or OUT.
 
 Answer OUT only when the message asks for something clearly unrelated to music, for \
-example help with code, homework or maths, a recipe, news, general knowledge, medical, legal \
-or financial advice, or writing texts that are not about music.
+example writing code, solving homework or maths problems, a recipe, news, general knowledge, \
+medical, legal or financial advice, or writing texts that are not about music.
 
 Answer IN for everything else, including:
 - anything about music, artists, songs, albums, genres, moods, eras or listening situations \
 (a workout, a rainy Sunday, a party, studying, a road trip);
+- messages that only describe what the user is doing or feeling, such as "I need to focus \
+on my homework" or "cooking dinner tonight", since they may want music for it;
 - greetings, thanks, small talk and questions about what the assistant can do;
 - short replies to the assistant's last message, such as "yes", "no", "30", "more upbeat" \
 or "remove the third one";
