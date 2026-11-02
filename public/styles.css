@@ -277,12 +277,20 @@
 }
 .apg-attrib {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.5rem 0.75rem;
   margin-top: 0.5rem;
   font-size: 0.78rem;
 }
 .apg-attrib a { color: var(--apg-accent-text); }
+/* Monochrome full logo: black on light surfaces, white on dark ones (Spotify logo guidelines). */
+.apg-attrib img { flex: none; width: auto; }
+.apg-logo-dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  .apg-logo-light { display: none; }
+  .apg-logo-dark { display: inline; }
+}
 
 /* ── Equalizer indicator, skeleton shimmer, confetti ───────────────────────── */
 .apg-eq { display: inline-flex; gap: 3px; align-items: flex-end; height: 18px; }

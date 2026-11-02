@@ -233,7 +233,7 @@ The UI is a themed Streamlit app (`app.py`, `src/ui/*`, `.streamlit/config.toml`
   * an equalizer-bars typing indicator;
   * a skeleton shimmer while resolving;
   * confetti when the playlist is created on Spotify.
-* **Spotify design guidelines:** album artwork keeps its original form (no crop, overlay or filter; animations apply to containers only) with the 4px corner radius the guidelines require, the Spotify logo and attribution appear near playlist cards, and every track and playlist links back to Spotify.
+* **Spotify design guidelines:** album artwork keeps its original form (no crop, overlay or filter; animations apply to containers only) with the 4px corner radius the guidelines require; every playlist card is attributed with the official full Spotify logo (icon + wordmark, 24px tall so it stays above the 70px minimum width), black on the light theme and white on the dark one, next to "Metadata provided by Spotify"; and every track and playlist links back to Spotify.
 * **Language:** the assistant replies in the user's language; the UI chrome is in English.
 
 ### 6. Infrastructure as Code (Terraform)
@@ -306,8 +306,10 @@ ai-playlist-generator/
 ├── .streamlit/
 │   └── config.toml             # Light and dark "Daylight" theme
 ├── public/
-│   ├── logo.svg                # App logo (the official Spotify logo is added manually for attribution)
+│   ├── logo.svg                # App logo
 │   ├── spotify_icon.svg        # Official black Spotify icon shown on Spotify-branded buttons
+│   ├── spotify_logo_black.svg  # Official full Spotify logo for attribution on the light theme
+│   ├── spotify_logo_white.svg  # Official full Spotify logo for attribution on the dark theme
 │   └── styles.css              # Light/dark tokens, layout overrides, animations
 ├── scripts/
 │   ├── spotify_spike.py        # Dev-only: Phase 3 Spotify de-risking spike

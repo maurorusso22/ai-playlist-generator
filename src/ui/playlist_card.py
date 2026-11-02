@@ -22,10 +22,11 @@ IMAGE_URL_PREFIX = "https://i.scdn.co/"  # Only Spotify's image CDN is kept
 COLLAPSED_ROWS = 5  # Rows visible before the "Show all" expander
 COVER_PX = 56  # Rendered album cover size
 CARD_KEY = "playlist_card"  # Container key; styles.css draws the card on its st-key class
-SPOTIFY_LOGOS = (  # Official Spotify logo files, added by hand; the first present is shown
-    styles.PUBLIC_DIR / "spotify_logo.svg",
-    styles.PUBLIC_DIR / "spotify_logo.png",
+SPOTIFY_LOGOS = (  # Official full logos, unmodified: (CSS theme class, file) per surface
+    ("light", styles.PUBLIC_DIR / "spotify_logo_black.svg"),
+    ("dark", styles.PUBLIC_DIR / "spotify_logo_white.svg"),
 )
+LOGO_PX = 24  # Full logo height; its width (~88px) stays above Spotify's 70px minimum
 ATTRIBUTION = "Metadata provided by Spotify"  # Text attribution required near Spotify content
 
 
@@ -105,14 +106,20 @@ def card_header_html(draft: PlaylistDraft, tracks: list[ResolvedTrack], saved: b
 def attribution_html(created: CreatedPlaylist | None) -> str:
     """Build the Spotify attribution line, with the playlist link once it is created.
 
+    Both logo variants are emitted; the stylesheet shows the one matching the color scheme.
+
     Args:
         created: The playlist created on Spotify, if any.
 
     Returns:
         The attribution markup.
     """
-    logo_uri = next(filter(None, map(styles.data_uri, SPOTIFY_LOGOS)), None)
-    logo = f'<img src="{logo_uri}" alt="Spotify" height="24">' if logo_uri else ""
+    uris = ((theme, styles.data_uri(path)) for theme, path in SPOTIFY_LOGOS)
+    logo = "".join(
+        f'<img class="apg-logo-{theme}" src="{uri}" alt="Spotify" height="{LOGO_PX}">'
+        for theme, uri in uris
+        if uri
+    )
     link = safe_url(created.url, TRACK_URL_PREFIX) if created and created.items_added else None
     anchor = (
         f' · <a href="{link}" target="_blank" rel="noopener">Open on Spotify</a>' if link else ""

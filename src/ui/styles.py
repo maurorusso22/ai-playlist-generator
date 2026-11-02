@@ -39,7 +39,7 @@ def inject_styles() -> None:
         st.html(f'<style>:root{{--apg-spotify-icon:url("{icon}")}}</style>')
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=8)
 def data_uri(path: Path) -> str | None:
     """Encode a local image as a data URI, so no static file server is needed.
 
