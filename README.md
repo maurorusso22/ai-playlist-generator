@@ -233,7 +233,7 @@ The UI is a themed Streamlit app (`app.py`, `src/ui/*`, `.streamlit/config.toml`
   * an equalizer-bars typing indicator;
   * a skeleton shimmer while resolving;
   * confetti when the playlist is created on Spotify.
-* **Spotify design guidelines:** album artwork is shown unaltered (no crop, overlay or filter; animations apply to containers only), the Spotify logo and attribution appear near playlist cards, and every track and playlist links back to Spotify.
+* **Spotify design guidelines:** album artwork keeps its original form (no crop, overlay or filter; animations apply to containers only) with the 4px corner radius the guidelines require, the Spotify logo and attribution appear near playlist cards, and every track and playlist links back to Spotify.
 * **Language:** the assistant replies in the user's language; the UI chrome is in English.
 
 ### 6. Infrastructure as Code (Terraform)

@@ -3,7 +3,8 @@
 This is the only place where LLM- and Spotify-derived text meets raw HTML, so every dynamic
 field goes through `html.escape` and only Spotify's own link and image hosts are accepted:
 this closes the chain prompt injection -> XSS -> localStorage session theft. Album artwork is
-rendered unaltered: the <img> tag carries no style, class, filter or animation.
+rendered in its original form: the <img> tag carries no style, class, filter or animation, and
+the stylesheet only rounds its corners by the 4px Spotify's design guidelines require.
 """
 
 import html

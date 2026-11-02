@@ -1,6 +1,7 @@
 /* AI Playlist Generator "Daylight" theme, loaded by src/ui/styles.py.
-   Album artwork is never styled: no rule targets img elements inside track rows, and every
-   animation applies to containers only. Spotify green is reserved for Spotify buttons.
+   Album artwork keeps its original form: its only rule is the 4px corner radius Spotify's design
+   guidelines require, and every animation applies to containers only. Spotify green is
+   reserved for Spotify buttons.
    Light by default; the dark tokens follow prefers-color-scheme, which is also how Streamlit
    picks between [theme.light] and [theme.dark] in .streamlit/config.toml. */
 
@@ -252,6 +253,7 @@
   font-variant-numeric: tabular-nums;
 }
 .apg-cover { flex: none; width: 56px; height: 56px; line-height: 0; }
+.apg-cover img { border-radius: 4px; }
 .apg-cover-empty {
   box-sizing: border-box;
   border: 1.5px dashed var(--apg-line-strong);
