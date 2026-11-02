@@ -222,18 +222,17 @@ Implemented in `src/session/session_store.py`, `src/session/browser_session.py` 
 
 ### 5. Frontend & UX
 The UI is a themed Streamlit app (`app.py`, `src/ui/*`, `.streamlit/config.toml`). `app.py` routes each run: bootstrap → OAuth callback handling → **landing**, **chat** or **expired** screen.
-* **Landing screen:** a three-step explanation (*describe → review → save*), the **"Continue with Spotify"** and **"Use as a Guest"** buttons, a small note that Spotify login is invite-only, and a footnote asking users not to share personal data.
+* **Landing screen:** the headline *"Describe the music you want."*, a numbered three-step explanation (*describe → review → save*), the **"Continue with Spotify"** and **"Use as a Guest"** buttons, and a notes box saying that Spotify login is invite-only and asking users not to share personal data.
 * **Chat header:** a mode badge (`Guest` or `Spotify · <display name>`), a "Log in with Spotify" button for guests and a **"New chat"** button.
-* **Playlist card:** title, description and track count; the collapsed view shows the first 5 tracks and **"Show all N tracks"** expands it (the expander appears only when the playlist has more than 5 tracks). Each row shows the album cover, title and artist, and links to the track on Spotify; tracks not found are flagged.
+* **Playlist card:** a status chip (*Draft* or *On Spotify*), title, description and track count; the collapsed view shows the first 5 tracks and **"Show all N tracks"** expands it (the expander appears only when the playlist has more than 5 tracks). Each row shows its number, the album cover, title and artist, and links to the track on Spotify; tracks not found get a dashed cover placeholder and a *Not on Spotify* badge.
 * **Non-blocking confirmations:** buttons ("Create on Spotify" / "Not now", or "Log in with Spotify to save" for guests) sit right under the latest assistant message, like a suggestion card that can be accepted or ignored. Only the latest assistant message can carry buttons, and sending a new message clears the pending action so stale buttons disappear. The create button is disabled while busy and a stored `created_playlist` prevents duplicates on double clicks.
-* **Theme:** dark mode with a violet palette: `base = "dark"`, primary `#A855F7`, background `#0B0614`, secondary background `#1A1030`, text `#EDE9FE`, `toolbarMode = "minimal"`. Spotify green (`#1DB954`) is reserved for Spotify-branded buttons.
-* **Special effects** (CSS/HTML injected by `src/ui/styles.py`, all disabled under `prefers-reduced-motion`):
-  * a slowly animated violet "aurora" gradient background;
-  * glassmorphism chat bubbles and playlist card (`backdrop-filter: blur`);
-  * glowing primary buttons with a hover pulse;
+* **Theme ("Daylight"):** light by default and dark when the OS prefers it: `.streamlit/config.toml` defines `[theme.light]` (background `#F4F5F7`, surfaces `#FFFFFF`, text `#0B0C0E`, primary cobalt `#2E4BFF`) and `[theme.dark]` (background `#0E1014`, surfaces `#171A21`, text `#F2F4F7`, primary `#3D58FF`), and Streamlit picks one from `prefers-color-scheme`, the same media query `public/styles.css` uses for its own tokens. Fonts: Bricolage Grotesque for headings and Figtree for text (Google Fonts), pill-shaped buttons, `toolbarMode = "minimal"`. Spotify green (`#1DB954`) is reserved for Spotify-branded buttons.
+* **Chat layout:** assistant replies are plain text next to a cobalt avatar; user messages are right-aligned cobalt bubbles without an avatar; the playlist card is a surface panel holding its rows, the "Show all" expander and the attribution.
+* **Effects** (CSS/HTML injected by `src/ui/styles.py`, all disabled under `prefers-reduced-motion`):
+  * fade/slide-in of chat messages, landing steps and (staggered) track rows;
   * an equalizer-bars typing indicator;
-  * staggered fade/slide-in of track rows and a skeleton shimmer while resolving;
-  * violet confetti when the playlist is created on Spotify.
+  * a skeleton shimmer while resolving;
+  * confetti when the playlist is created on Spotify.
 * **Spotify design guidelines:** album artwork is shown unaltered (no crop, overlay or filter; animations apply to containers only), the Spotify logo and attribution appear near playlist cards, and every track and playlist links back to Spotify.
 * **Language:** the assistant replies in the user's language; the UI chrome is in English.
 
@@ -305,10 +304,10 @@ ai-playlist-generator/
 │   ├── base.toml               # Non-secret settings (local-development values)
 │   └── production.toml         # Production overrides, selected by APP_ENV=production
 ├── .streamlit/
-│   └── config.toml             # Dark violet theme
+│   └── config.toml             # Light and dark "Daylight" theme
 ├── public/
 │   ├── logo.svg                # App logo (the official Spotify logo is added manually for attribution)
-│   └── styles.css              # Dark violet theme, animations, effects
+│   └── styles.css              # Light/dark tokens, layout overrides, animations
 ├── scripts/
 │   ├── spotify_spike.py        # Dev-only: Phase 3 Spotify de-risking spike
 │   └── spike_helpers.py        # Spike HTTP helpers (standalone, no src/ imports)
