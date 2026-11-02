@@ -13,7 +13,7 @@ google-cloud-firestore>=2.19.0
 cryptography>=43.0.0  # Fernet encryption of Spotify tokens at rest
 
 # ── Frontend ──────────────────────────────────────────────────────────────────
-streamlit>=1.40.0
+streamlit>=1.66.0  # [theme.light]/[theme.dark], font URLs, buttonRadius, st.badge
 streamlit-js-eval>=1.0.0  # localStorage bridge for the session id (tri-state read, JS try/catch)
 
 # ── Rate Limiting ─────────────────────────────────────────────────────────────
