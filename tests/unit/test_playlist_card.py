@@ -4,7 +4,13 @@ import re
 
 from src.models.session.created_playlist import CreatedPlaylist
 from src.models.spotify.resolved_track import ResolvedTrack
-from src.ui.playlist_card import attribution_html, card_header_html, safe_url, track_row_html
+from src.ui.playlist_card import (
+    COVER_PX,
+    attribution_html,
+    card_header_html,
+    safe_url,
+    track_row_html,
+)
 from tests.unit.app_builders import make_draft, make_tracks
 
 XSS = "<img src=x onerror=alert(1)>"  # Prompt-injected markup that must never render as HTML
@@ -66,7 +72,7 @@ def test_not_found_track_has_badge_and_no_link() -> None:
     """A not-found track is dimmed, badged and unlinked (FR-16)."""
     track = ResolvedTrack(name="Lost", artists=["Nobody"], found=False)
     row = track_row_html(track, 0)
-    assert "not found on Spotify" in row and "apg-missing" in row
+    assert "Not on Spotify" in row and "apg-missing" in row
     assert "<a " not in row and "<img" not in row
 
 
@@ -82,21 +88,28 @@ def test_artwork_is_unaltered() -> None:
     img = re.search(r"<img[^>]*>", row)
     assert img is not None
     tag = img.group(0)
-    assert 'src="https://i.scdn.co/image/0"' in tag and 'width="64" height="64"' in tag
+    assert 'src="https://i.scdn.co/image/0"' in tag
+    assert f'width="{COVER_PX}" height="{COVER_PX}"' in tag
     assert all(word not in tag for word in ("style", "class", "filter", "transform"))
 
 
 def test_header_counts_found_and_missing_tracks() -> None:
     """The header shows the found and not-found counts."""
-    header = card_header_html(make_draft(18), make_tracks(16, 2))
+    header = card_header_html(make_draft(18), make_tracks(16, 2), saved=False)
     assert "16 tracks · 2 not found on Spotify" in header and "House Hits" in header
-    assert "not found" not in card_header_html(make_draft(4), make_tracks(4))
+    assert "not found" not in card_header_html(make_draft(4), make_tracks(4), saved=False)
+
+
+def test_header_chip_tracks_the_save_state() -> None:
+    """The status chip reads Draft until the playlist is saved on Spotify."""
+    assert ">Draft<" in card_header_html(make_draft(4), make_tracks(4), saved=False)
+    assert ">On Spotify<" in card_header_html(make_draft(4), make_tracks(4), saved=True)
 
 
 def test_header_escapes_llm_title_and_description() -> None:
     """The LLM title and description are escaped in the header."""
     draft = make_draft(1).model_copy(update={"title": XSS, "description": XSS})
-    assert "<img src=x" not in card_header_html(draft, make_tracks(1))
+    assert "<img src=x" not in card_header_html(draft, make_tracks(1), saved=False)
 
 
 def test_attribution_links_the_playlist_only_once_filled() -> None:
@@ -105,3 +118,10 @@ def test_attribution_links_the_playlist_only_once_filled() -> None:
     assert "Metadata provided by Spotify" in attribution_html(None)
     assert url not in attribution_html(CreatedPlaylist(id="pl1", url=url))
     assert url in attribution_html(CreatedPlaylist(id="pl1", url=url, items_added=True))
+
+
+def test_attribution_has_both_full_logo_variants() -> None:
+    """Both official logos are emitted; the stylesheet shows the one for the color scheme."""
+    html = attribution_html(None)
+    assert 'class="apg-logo-light"' in html and 'class="apg-logo-dark"' in html
+    assert html.count('alt="Spotify"') == 2

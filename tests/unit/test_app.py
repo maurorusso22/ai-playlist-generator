@@ -76,7 +76,7 @@ def test_guest_start_stores_session_id_and_shows_guest_badge(mocks: Mocks) -> No
     at = click(run_app(mocks), "Use as a Guest")
     mocks.create.assert_called_once_with("guest")
     mocks.store.assert_called_once_with(SID)
-    assert len(at.chat_input) == 1 and ":violet-badge[" in texts(at)
+    assert len(at.chat_input) == 1 and ":gray-badge[" in texts(at)
     assert "Guest]" in texts(at) and "Log in with Spotify" in labels(at)
 
 
