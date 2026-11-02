@@ -3,7 +3,7 @@
 # config/<APP_ENV>.toml, when present, overrides single keys of this file.
 
 [gcp]
-project_id = ""  # GCP project hosting Firestore (`terraform -chdir=terraform output project_id`)
+project_id = "ai-playlist-generator-mr"  # GCP project hosting Firestore (`terraform -chdir=terraform output project_id`)
 
 [sessions]
 collection = "sessions"  # Firestore collection of chat sessions (TTL policy on `expires_at`)
@@ -16,7 +16,7 @@ model = "gemini-3.5-flash-lite"  # Gemini model id of the conversation engine
 model = "gemma-4-26b-a4b-it"  # Gemma model id of the fail-open out-of-scope filter
 
 [spotify]
-client_id = ""  # Spotify app Client ID (public by design; the Client Secret goes in .env)
+client_id = "8d9dddb9af8b4de9b9b86baf4d8dd384"  # Spotify app Client ID (public by design; the Client Secret goes in .env)
 redirect_uri = "http://127.0.0.1:8501/"  # Registered exactly in the Dashboard; never localhost
 market = "IT"  # ISO 3166-1 alpha-2 country code for catalog search
 
