@@ -8,12 +8,12 @@ on:
 permissions:
   contents: read
 
-# Replace YOUR_PROJECT_ID in PROJECT_ID and SERVICE_ACCOUNT (README "Deployment on GCP", Step 6).
+# GCP project and runtime identity provisioned by Terraform (README "Deployment on GCP", Step 6).
 env:
-  PROJECT_ID: YOUR_PROJECT_ID
+  PROJECT_ID: ai-playlist-generator-mr
   REGION: us-central1
   IMAGE_NAME: playlist-generator
-  SERVICE_ACCOUNT: playlist-generator@YOUR_PROJECT_ID.iam.gserviceaccount.com
+  SERVICE_ACCOUNT: playlist-generator@ai-playlist-generator-mr.iam.gserviceaccount.com
 
 jobs:
   test:
