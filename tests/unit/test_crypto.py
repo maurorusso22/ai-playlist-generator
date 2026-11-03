@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 from cryptography.fernet import Fernet
+from pydantic import SecretStr
 
 from src.config.errors import ConfigError
 from src.config.secrets import get_secrets
@@ -22,8 +23,8 @@ def tokens() -> SpotifyTokens:
         A SpotifyTokens instance.
     """
     return SpotifyTokens(
-        access_token=ACCESS,
-        refresh_token=REFRESH,
+        access_token=SecretStr(ACCESS),
+        refresh_token=SecretStr(REFRESH),
         expires_at=datetime(2030, 1, 1, 12, 30, 15, 123456, tzinfo=UTC),
         user_id="user-1",
         display_name="Mauro",

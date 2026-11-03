@@ -81,7 +81,9 @@ def test_history_maps_roles_skips_notices_and_is_capped(invoke: MagicMock) -> No
     history: list[ChatMessage] = []
     for i in range(15):
         history += [
-            ChatMessage(role=r, content=f"{r} {i}") for r in ("user", "notice", "assistant")
+            ChatMessage(role="user", content=f"user {i}"),
+            ChatMessage(role="notice", content=f"notice {i}"),
+            ChatMessage(role="assistant", content=f"assistant {i}"),
         ]
     chain.run_turn("next", history, None)
     sent = invoke.call_args.args[0]

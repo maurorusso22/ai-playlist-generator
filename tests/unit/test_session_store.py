@@ -5,6 +5,7 @@ from datetime import timedelta
 from unittest.mock import MagicMock
 
 import pytest
+from pydantic import SecretStr
 from pytest_mock import MockerFixture
 
 from src.models.conversation.playlist_draft import PlaylistDraft
@@ -134,7 +135,11 @@ def test_is_expired_uses_local_state(doc: MagicMock) -> None:
 
 
 def test_payload_never_contains_plaintext_tokens(doc: MagicMock) -> None:
-    secret = SpotifyTokens(access_token="acc-SECRET", refresh_token="ref-SECRET", expires_at=NOW)
+    secret = SpotifyTokens(
+        access_token=SecretStr("acc-SECRET"),
+        refresh_token=SecretStr("ref-SECRET"),
+        expires_at=NOW,
+    )
     blob = encrypt_tokens(secret)
     session_store.touch(_state(), mode="spotify", spotify_auth=blob)
     payload = doc.update.call_args.args[0]
