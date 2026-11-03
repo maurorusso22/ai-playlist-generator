@@ -892,9 +892,9 @@ The Spotify name, logo and icon (`public/spotify_*.svg`) are trademarks of Spoti
 
 * **Name:** Mauro Russo
 * **Role:** AI Engineer
-* **LinkedIn:** [linkedin.com/in/your-profile](https://linkedin.com/in/your-profile)
+* **LinkedIn:** [linkedin.com/in/mauro-russo-817026225](https://www.linkedin.com/in/mauro-russo-817026225/)
 * **GitHub:** [github.com/maurorusso22](https://github.com/maurorusso22)
-* **Live Demo:** [Link to your Cloud Run URL] *(available after deployment)*
+* **Live Demo:** [playlist-generator-elrnoec7rq-uc.a.run.app](https://playlist-generator-elrnoec7rq-uc.a.run.app/) *(Spotify login is invite-only; guest mode is open to everyone)*
 
 I am always open to discussing **LLM Orchestration**, **Cloud-Native AI**, and **MLOps**. Feel free to reach out if you are a recruiter or engineer interested in this conversational, structured-output approach to integrating LLMs with third-party APIs.
 
