@@ -31,9 +31,10 @@ application_default_credentials.json
 # Streamlit
 .streamlit/secrets.toml
 
-# IDE
+# IDE / AI coding assistants
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 .pytest_cache/
