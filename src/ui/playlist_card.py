@@ -1,4 +1,4 @@
-"""Compact, expandable playlist card (FR-05) with not-found flags (FR-16) and attribution.
+"""Compact, expandable playlist card (FR-05) with Spotify attribution.
 
 This is the only place where LLM- and Spotify-derived text meets raw HTML, so every dynamic
 field goes through `html.escape` and only Spotify's own link and image hosts are accepted:
@@ -46,12 +46,12 @@ def safe_url(url: str | None, prefix: str) -> str | None:
 
 
 def track_row_html(track: ResolvedTrack, index: int) -> str:
-    """Build one track row: number, cover, title (linked to Spotify), artists, not-found badge.
+    """Build one track row: number, cover, title (linked to Spotify) and artists.
 
     A row without artwork gets a dashed placeholder; the artwork itself is never styled.
 
     Args:
-        track: A resolved (or flagged not-found) track.
+        track: A resolved track.
         index: Position in the card, used for the number and the staggered fade-in delay.
 
     Returns:
@@ -67,33 +67,29 @@ def track_row_html(track: ResolvedTrack, index: int) -> str:
         if image
         else '<div class="apg-cover apg-cover-empty" aria-hidden="true"></div>'
     )
-    link = safe_url(track.external_url, TRACK_URL_PREFIX) if track.found else None
+    link = safe_url(track.external_url, TRACK_URL_PREFIX)
     if link:
         title = f'<a href="{link}" target="_blank" rel="noopener noreferrer">{title}</a>'
-    badge = "" if track.found else '<span class="apg-missing-badge">Not on Spotify</span>'
-    row_class = "apg-row" if track.found else "apg-row apg-missing"
     return (
-        f'<div class="{row_class}" style="--i:{int(index)}">'
+        f'<div class="apg-row" style="--i:{int(index)}">'
         f'<span class="apg-num">{int(index) + 1}</span>{cover}'
         f'<div class="apg-track"><div class="apg-title">{title}</div>'
-        f'<div class="apg-artist">{artists}</div>{badge}</div></div>'
+        f'<div class="apg-artist">{artists}</div></div></div>'
     )
 
 
 def card_header_html(draft: PlaylistDraft, tracks: list[ResolvedTrack], saved: bool) -> str:
-    """Build the card header: status chip, title, description and the found/not-found counts.
+    """Build the card header: status chip, title, description and the track count.
 
     Args:
         draft: The LLM's draft (title and description).
-        tracks: Resolved tracks, not-found entries included.
+        tracks: Resolved tracks.
         saved: Whether the playlist is already created on Spotify with its tracks.
 
     Returns:
         The escaped header markup.
     """
-    found = sum(track.found for track in tracks)
-    missing = len(tracks) - found
-    meta = f"{found} tracks" + (f" · {missing} not found on Spotify" if missing else "")
+    meta = f"{len(tracks)} tracks"
     chip = "On Spotify" if saved else "Draft"
     return (
         f'<div class="apg-card-head"><div><span class="apg-chip">{chip}</span></div>'

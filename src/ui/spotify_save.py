@@ -49,7 +49,7 @@ def _save_tokens(tokens: SpotifyTokens) -> SpotifyTokens:
 
 
 def _create_and_fill(client: spotify_client.SpotifyClient, tokens: SpotifyTokens) -> None:
-    """Create the playlist unless already created, add the found tracks, post the link.
+    """Create the playlist unless already created, add the draft's tracks, post the link.
 
     Args:
         client: Spotify Web API client.
@@ -66,7 +66,7 @@ def _create_and_fill(client: spotify_client.SpotifyClient, tokens: SpotifyTokens
         ui_state.set_current(state)  # Cached before the write: a failed write cannot duplicate
         state = session_store.touch(state, created_playlist=created)
         ui_state.set_current(state)
-    uris = [track.uri for track in state.resolved_tracks if track.found and track.uri]
+    uris = [track.uri for track in state.resolved_tracks if track.uri]
     client.add_items(token, created.id, uris)
     done = created.model_copy(update={"items_added": True})
     ui_state.set_current(state.model_copy(update={"created_playlist": done}))

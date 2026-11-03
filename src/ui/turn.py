@@ -98,8 +98,10 @@ def _changes(
         return {"pending_action": None}  # A new message always dismisses stale buttons
     index = len(state.messages) + 1  # The assistant reply, right after the user message
     kind = "confirm_create" if state.mode == "spotify" else "login_to_save"
-    found = any(t.found for t in tracks)  # No button for a playlist with nothing to save
-    action = PendingAction.model_validate({"kind": kind, "message_index": index}) if found else None
+    # No button for a playlist with nothing to save
+    action = (
+        PendingAction.model_validate({"kind": kind, "message_index": index}) if tracks else None
+    )
     return {
         "draft": turn.playlist,
         "draft_message_index": index,

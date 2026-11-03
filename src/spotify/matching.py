@@ -117,7 +117,7 @@ def to_resolved(item: dict[str, Any]) -> ResolvedTrack:
         item: The matched search result.
 
     Returns:
-        A found ResolvedTrack with the Spotify fields filled.
+        A ResolvedTrack with the Spotify fields filled.
     """
     album = item.get("album") or {}
     return ResolvedTrack(
@@ -129,5 +129,4 @@ def to_resolved(item: dict[str, Any]) -> ResolvedTrack:
         image_url=pick_image(album.get("images") or []),
         external_url=(item.get("external_urls") or {}).get("spotify"),
         duration_ms=item.get("duration_ms"),
-        found=True,
     )

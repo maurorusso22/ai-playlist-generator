@@ -6,8 +6,8 @@ from pydantic import BaseModel
 class ResolvedTrack(BaseModel):
     """A suggestion matched on Spotify, for display and playlist creation only.
 
-    Never sent to the LLM. For not-found entries `name`/`artists` carry the suggestion's
-    title/artist and every Spotify field is None.
+    Never sent to the LLM. Suggestions without a match are dropped by the resolver, so every
+    instance comes from a Spotify search result.
     """
 
     spotify_id: str | None = None
@@ -18,4 +18,3 @@ class ResolvedTrack(BaseModel):
     image_url: str | None = None
     external_url: str | None = None
     duration_ms: int | None = None
-    found: bool

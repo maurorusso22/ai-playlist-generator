@@ -38,7 +38,7 @@ def _notice(state: SessionState, text: str, **changes: object) -> None:
 
 
 def draft_pending(state: SessionState) -> bool:
-    """Tell whether the session holds a draft with found tracks not yet saved to Spotify.
+    """Tell whether the session holds a draft with tracks not yet saved to Spotify.
 
     Args:
         state: The cached session.
@@ -48,7 +48,7 @@ def draft_pending(state: SessionState) -> bool:
     """
     created = state.created_playlist
     unsaved = created is None or not created.items_added
-    return state.draft is not None and unsaved and any(t.found for t in state.resolved_tracks)
+    return state.draft is not None and unsaved and bool(state.resolved_tracks)
 
 
 def _logged_in(state: SessionState, tokens: SpotifyTokens) -> None:

@@ -45,37 +45,31 @@ def _search(
 
 
 def _select(
-    suggestions: list[TrackSuggestion],
-    keys: list[SearchKey],
-    matches: dict[SearchKey, dict[str, Any] | None],
-    size: int,
+    keys: list[SearchKey], matches: dict[SearchKey, dict[str, Any] | None], size: int
 ) -> list[ResolvedTrack]:
-    """Keep the first `size` found tracks in suggestion order, flagging not-found ones.
+    """Keep the first `size` found tracks in suggestion order.
 
-    Surplus found tracks are dropped, and so is a track already selected (same URI).
+    Not-found suggestions are dropped, as are surplus found tracks and a track already
+    selected (same URI): the over-generated candidates take the place of the missing ones.
 
     Args:
-        suggestions: The LLM's suggestions, in order.
-        keys: Search key of each suggestion.
+        keys: Search key of each suggestion, in suggestion order.
         matches: Best match per search key.
         size: Number of found tracks the playlist needs.
 
     Returns:
-        Found tracks interleaved with flagged (found=False) entries for display.
+        Up to `size` found tracks.
     """
     selected: list[ResolvedTrack] = []
     seen_uris: set[str] = set()
-    for suggestion, key in zip(suggestions, keys, strict=True):
-        if len(seen_uris) >= size:
+    for key in keys:
+        if len(selected) >= size:
             break
         item = matches.get(key)
-        if item is None:
-            selected.append(
-                ResolvedTrack(name=suggestion.title, artists=[suggestion.artist], found=False)
-            )
-        elif str(item.get("uri")) not in seen_uris:
-            seen_uris.add(str(item.get("uri")))
-            selected.append(to_resolved(item))
+        if item is None or str(item.get("uri")) in seen_uris:
+            continue
+        seen_uris.add(str(item.get("uri")))
+        selected.append(to_resolved(item))
     return selected
 
 
@@ -92,7 +86,7 @@ def resolve_tracks(
         on_progress: Callback (done, total), always invoked on the calling thread.
 
     Returns:
-        Up to `size` found tracks plus flagged not-found entries, in suggestion order.
+        Up to `size` found tracks, in suggestion order; not-found suggestions are dropped.
     """
     market = get_settings().spotify.market
     keys = [(normalize(s.title), normalize(s.artist), market) for s in suggestions]
@@ -119,4 +113,4 @@ def resolve_tracks(
         except BaseException:
             pool.shutdown(wait=False, cancel_futures=True)
             raise
-    return _select(suggestions, keys, matches, size)
+    return _select(keys, matches, size)
