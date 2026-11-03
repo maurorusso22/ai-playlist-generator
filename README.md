@@ -46,7 +46,7 @@ The following requirements define the expected behavior of the system from a use
 | FR-13 | An expired session MUST NOT be resumable; the user can only start a new chat. | MUST |
 | FR-14 | The system SHOULD rate-limit chat messages per client IP (12 per minute, sliding window). | SHOULD |
 | FR-15 | The system SHOULD reply in the user's language. | SHOULD |
-| FR-16 | The system SHOULD flag tracks not found on Spotify and exclude them from the saved playlist. | SHOULD |
+| FR-16 | The system SHOULD leave tracks not found on Spotify out of both the playlist card and the saved playlist. | SHOULD |
 | FR-17 | The system MAY search the web for very recent releases mentioned by the user (future work, pending a free-tier check). | MAY |
 | FR-18 | The system SHOULD stop clearly off-topic messages with a cheap intent gate before they reach Gemini, failing open: an off-topic message may get through, an in-scope one must never be blocked. | SHOULD |
 
@@ -124,7 +124,7 @@ sequenceDiagram
             R->>SP: GET /v1/search (Client Credentials token)
             SP-->>R: Up to 5 candidate tracks
         end
-        R-->>UI: ResolvedTrack list (found / not found)
+        R-->>UI: ResolvedTrack list (found tracks only)
         UI->>FS: One update: messages, draft, resolved tracks, pending action
         UI-->>U: Playlist card + "Create on Spotify" / "Not now"
         U->>UI: Click "Create on Spotify"
@@ -135,7 +135,7 @@ sequenceDiagram
         UI->>FS: Clear pending action
         UI-->>U: Playlist link + celebration effect
     end
-    Note over IG,SP: Spotify data (ids, names, images, not-found flags) never flows into Gemma or Gemini
+    Note over IG,SP: Spotify data (ids, names, images, match results) never flows into Gemma or Gemini
 ```
 
 > **Data boundary.** Spotify-resolved data is stored separately from the conversation and used only for display and playlist creation. The LLMs only ever see the user's messages and Gemini's own previous replies and drafts. For guests, the card is followed by a **"Log in with Spotify to save"** button; after the OAuth round-trip the same confirmation buttons appear.
@@ -167,8 +167,8 @@ Implemented in `src/guards/intent_gate.py`, `src/guards/gate_prompt.py`, `src/co
 ### 2. Playlist Resolution
 Implemented in `src/spotify/resolver.py`, this step makes every playlist **Spotify-ready** in both modes (guests use the app-level Client Credentials token):
 * **Search:** for each `TrackSuggestion`, the resolver calls `GET /v1/search?type=track&q=track:"<title>" artist:"<artist>"&limit=5&market=<spotify.market>` (well within the 10-results cap that applies to new Development Mode apps).
-* **Matching:** the best candidate is chosen by normalized string similarity on title and artist (`difflib`); candidates below a minimum score are marked `not_found`.
-* **Over-generation instead of backfill:** the LLM is asked for `size + ceil(size * 0.2)` candidates (20 for the default 16-track playlist, 36 for the maximum of 30) and the app keeps the first `size` tracks that resolve. Unresolved leftovers are shown flagged as "not found on Spotify" and excluded from saving. There is no automatic "replace missing tracks" loop, because it would feed Spotify-derived data back into the LLM.
+* **Matching:** the best candidate is chosen by normalized string similarity on title and artist (`difflib`); a suggestion whose candidates all score below a minimum is not found.
+* **Over-generation instead of backfill:** the LLM is asked for `size + ceil(size * 0.2)` candidates (20 for the default 16-track playlist, 36 for the maximum of 30) and the app keeps the first `size` tracks that resolve. Suggestions that do not resolve are dropped: they are neither shown nor saved. There is no automatic "replace missing tracks" loop, because it would feed Spotify-derived data back into the LLM.
 * **Performance:** searches run in parallel on a bounded `ThreadPoolExecutor` (5 workers), and identical suggestions within one request are searched only once. Search results are not cached across requests, because Spotify's Developer Terms forbid caching content beyond what is needed for immediate use. The UI shows progress ("Finding tracks on Spotify… 12/20") with skeleton placeholders.
 * **Output:** each `ResolvedTrack` carries `spotify_id`, `uri`, `name`, `artists`, `album`, `image_url` (smallest album image ≥ 64 px), `external_url`, `duration_ms` and `found`.
 
@@ -224,7 +224,7 @@ Implemented in `src/session/session_store.py`, `src/session/browser_session.py` 
 The UI is a themed Streamlit app (`app.py`, `src/ui/*`, `.streamlit/config.toml`). `app.py` routes each run: bootstrap → OAuth callback handling → **landing**, **chat** or **expired** screen.
 * **Landing screen:** the headline *"Describe the music you want."*, a numbered three-step explanation (*describe → review → save*), the **"Continue with Spotify"** and **"Use as a Guest"** buttons, and a notes box saying that Spotify login is invite-only and asking users not to share personal data.
 * **Chat header:** a mode badge (`Guest` or `Spotify · <display name>`), a "Log in with Spotify" button for guests and a **"New chat"** button.
-* **Playlist card:** a status chip (*Draft* or *On Spotify*), title, description and track count; the collapsed view shows the first 5 tracks and **"Show all N tracks"** expands it (the expander appears only when the playlist has more than 5 tracks). Each row shows its number, the album cover, title and artist, and links to the track on Spotify; tracks not found get a dashed cover placeholder and a *Not on Spotify* badge.
+* **Playlist card:** a status chip (*Draft* or *On Spotify*), title, description and track count; the collapsed view shows the first 5 tracks and **"Show all N tracks"** expands it (the expander appears only when the playlist has more than 5 tracks). Each row shows its number, the album cover, title and artist, and links to the track on Spotify; a track without album artwork gets a dashed cover placeholder.
 * **Non-blocking confirmations:** buttons ("Create on Spotify" / "Not now", or "Log in with Spotify to save" for guests) sit right under the latest assistant message, like a suggestion card that can be accepted or ignored. Only the latest assistant message can carry buttons, and sending a new message clears the pending action so stale buttons disappear. The create button is disabled while busy and a stored `created_playlist` prevents duplicates on double clicks.
 * **Theme ("Daylight"):** light by default and dark when the OS prefers it: `.streamlit/config.toml` defines `[theme.light]` (background `#F4F5F7`, surfaces `#FFFFFF`, text `#0B0C0E`, primary cobalt `#2E4BFF`) and `[theme.dark]` (background `#0E1014`, surfaces `#171A21`, text `#F2F4F7`, primary `#3D58FF`), and Streamlit picks one from `prefers-color-scheme`, the same media query `public/styles.css` uses for its own tokens. Fonts: Bricolage Grotesque for headings and Figtree for text (Google Fonts), pill-shaped buttons, `toolbarMode = "minimal"`. Spotify green (`#1DB954`) is reserved for Spotify-branded buttons, which carry the official black Spotify icon (`public/spotify_icon.svg`, unmodified from Spotify's design kit) at 24px, above the 21px digital minimum, with half its height kept clear around it.
 * **Chat layout:** assistant replies are plain text next to a cobalt avatar; user messages are right-aligned cobalt bubbles without an avatar; the playlist card is a surface panel holding its rows, the "Show all" expander and the attribution.
@@ -518,11 +518,11 @@ python -m scripts.spotify_spike
 | `src/conversation/title.py` | Unit | Whitespace and quote clean-up, apostrophes kept, 60-character cap, blank fallback, guard integration and the prompt's title rule (`test_playlist_title.py`). |
 | `src/config/` | Unit | Committed TOML files valid, overlay merged key by key, unknown `APP_ENV`/keys/sections rejected, strict types, size bounds and redirect-URI rules (`test_settings.py`, `test_config_files.py`); missing secrets reported together and hidden from `repr()` (`test_secrets.py`). |
 | `src/session/browser_session.py` | Unit | Tri-state `localStorage` read (not loaded / empty / valid UUID4) with the bridge mocked (`test_browser_session.py`). |
-| `src/ui/playlist_card.py` | Unit | `html.escape` on every dynamic field, Spotify URL allowlist, not-found badge, unaltered artwork (`test_playlist_card.py`). |
+| `src/ui/playlist_card.py` | Unit | `html.escape` on every dynamic field, Spotify URL allowlist, track count, artwork placeholder, unaltered artwork (`test_playlist_card.py`). |
 | `src/conversation/chain.py` | Unit | Structured-output parsing, history containing only the LLM's own draft, clarification override, off-topic and Gemini error mapping, with a mocked LLM (`test_chain.py`). |
 | `src/spotify/client.py` | Unit | Search, profile, playlist and items endpoints, `Retry-After` and exponential backoff, `QUOTA_EXCEEDED`, and the mapping of every documented error status with Spotify's `error.message`, via `respx` (`test_spotify_client.py`). |
 | `src/spotify/auth.py` | Unit | App-token reuse until expiry, `state` verification, code exchange, refresh, re-authorization on `invalid_grant` and the 403 allowlist case (`test_spotify_auth.py`). |
-| `src/spotify/resolver.py` | Unit | Similarity threshold, `not_found` flags, over-generation trimming, in-request deduplication and no cross-request cache (`test_resolver.py`). |
+| `src/spotify/resolver.py` | Unit | Similarity threshold, not-found suggestions dropped, over-generation trimming, in-request deduplication and no cross-request cache (`test_resolver.py`). |
 | `src/guards/intent_gate.py` | Unit | Only `OUT` blocks; any other answer, errors, `429`s and timeouts fail open; context is the last assistant reply, never a notice; long messages skip the gate (`test_intent_gate.py`). |
 | `src/session/crypto.py` | Unit | Fernet round trip and rejection of a wrong key (`test_crypto.py`). |
 | `src/session/session_store.py` | Unit | Sliding expiry, expiry enforced on read, single write per turn and New chat deletion, with Firestore mocked (`test_session_store.py`). |
@@ -860,9 +860,9 @@ The project follows Spotify's [Developer Terms](https://developer.spotify.com/te
 
 ### Current Limitations
 * **Invite-only Spotify login:** Development Mode allows at most 5 allowlisted users and Extended Quota Mode is reserved for large organizations; everyone else can only use guest mode, with no export fallback.
-* **Knowledge cutoff:** tracks are chosen from the LLM's internal knowledge, so very recent releases may be unknown; songs the model gets wrong are caught by catalog resolution and flagged as "not found on Spotify".
+* **Knowledge cutoff:** tracks are chosen from the LLM's internal knowledge, so very recent releases may be unknown; songs the model gets wrong are caught by catalog resolution and left out of the playlist.
 * **Imperfect matching:** resolution relies on string similarity over a few search results, so a live, remastered or re-recorded version may occasionally be picked instead of the original.
-* **No automatic backfill:** missing tracks are not replaced automatically (that would feed Spotify data back into the LLM); a 16-track request may therefore save slightly fewer tracks.
+* **No automatic backfill:** missing tracks are not replaced automatically (that would feed Spotify data back into the LLM); a 16-track request may therefore show and save slightly fewer tracks.
 * **Private playlists only:** playlists are always created private.
 * **Per-browser sessions:** a session can be resumed only in the same browser and origin within 60 minutes; it does not follow the user across devices.
 * **No streaming responses:** the structured LLM response is returned as a complete block; the equalizer typing indicator covers the wait.
