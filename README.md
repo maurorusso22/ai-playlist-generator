@@ -281,7 +281,7 @@ The application is containerized with Docker (`python:3.12.13-slim-bookworm`, bu
 | **UI** | Streamlit + custom CSS/HTML + `localStorage` bridge component | Themed chat interface with animated effects. |
 | **Containerization** | Docker (`python:3.12.13-slim-bookworm`, `linux/amd64`) | Packaging the application for consistent deployments. |
 | **CI/CD** | GitHub Actions + Workload Identity Federation | Lint/test and keyless deploy on push to `main`. |
-| **Quality** | Ruff, pytest, pytest-mock, `respx` | Linting/formatting and offline tests (`respx` mocks `httpx`). |
+| **Quality** | Ruff, mypy, pytest, pytest-mock, `respx`, pre-commit, gitleaks | Linting/formatting, type checking, offline tests (`respx` mocks `httpx`) and secret scanning on every commit. |
 
 **Other libraries:** `pydantic` (v2) · `cryptography` (Fernet) · `cachetools` (rate limiting) · `google-cloud-firestore` · `httpx` · `python-dotenv` · `streamlit-js-eval`
 
@@ -299,6 +299,7 @@ ai-playlist-generator/
 ├── Makefile                    # run, test-unit, test-integration, test-smoke, test, docker-*, tf-apply
 ├── requirements.txt            # Python dependencies
 ├── ruff.toml                   # Linter/formatter config (same rules as ai-portfolio-assistant)
+├── .pre-commit-config.yaml     # Git hooks: hygiene checks, Ruff, mypy, gitleaks, Conventional Commits
 ├── .env.example                # Secrets template: the three secret names, no values
 ├── config/
 │   ├── base.toml               # Non-secret settings (local-development values)
@@ -380,6 +381,7 @@ ai-playlist-generator/
 
 ### Prerequisites
 * Python 3.12.13
+* [pre-commit](https://pre-commit.com) (`brew install pre-commit` or `pipx install pre-commit`)
 * Docker (for containerized local testing)
 * A Google Cloud Project with Firestore enabled in **Native Mode** (provisioned by Terraform, see [Deployment Step 2](#step-2--apply-core-infrastructure-firestore-ttl-rules-iam)) and Application Default Credentials (`gcloud auth application-default login`)
 * A Google AI Studio API Key ([aistudio.google.com/apikey](https://aistudio.google.com/apikey))
@@ -432,33 +434,38 @@ Settings and secrets live in separate files and never mix.
    .venv/bin/python -m pip install -r requirements.txt
    ```
 
-3. **Configure secrets and settings:**
+3. **Install the Git hooks** (pre-commit and commit-msg, both from `.pre-commit-config.yaml`):
+   ```bash
+   pre-commit install
+   ```
+
+4. **Configure secrets and settings:**
    ```bash
    cp .env.example .env
    # Edit .env: the three secrets only
    # Edit config/base.toml: set gcp.project_id and spotify.client_id
    ```
 
-4. **Generate the session encryption key** and paste it into `.env` as `SESSION_ENCRYPTION_KEY`:
+5. **Generate the session encryption key** and paste it into `.env` as `SESSION_ENCRYPTION_KEY`:
    ```bash
    python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
    ```
    > Use a different key per environment. Rotating the key makes stored Spotify tokens unreadable, which only forces affected users to log in again.
 
-5. **Authenticate to GCP** so the Firestore client can use Application Default Credentials:
+6. **Authenticate to GCP** so the Firestore client can use Application Default Credentials:
    ```bash
    gcloud auth application-default login
    gcloud config set project YOUR_PROJECT_ID
    ```
 
-6. **Run the application locally:**
+7. **Run the application locally:**
    ```bash
    streamlit run app.py
    # or: make run
    ```
    Then open **[http://127.0.0.1:8501](http://127.0.0.1:8501)**, not `http://localhost:8501`. Spotify forbids `localhost` redirect URIs and allows plain HTTP only for loopback IP literals, so the OAuth callback always lands on `127.0.0.1`. Because `localStorage` is per-origin, a session started on `localhost` would be invisible after the callback.
 
-7. **Run in Docker (optional):**
+8. **Run in Docker (optional):**
    ```bash
    make docker-build
    make docker-run   # mounts your Application Default Credentials read-only
@@ -485,6 +492,9 @@ ruff format --check .
 
 # Apply formatting
 ruff format .
+
+# Run every pre-commit hook on the whole repository
+pre-commit run --all-files
 
 # Run all tests
 pytest tests/
@@ -840,6 +850,7 @@ The project follows Spotify's [Developer Terms](https://developer.spotify.com/te
 
 ### 8. Code Quality
 * **Ruff:** All code MUST pass Ruff linting and formatting checks before being committed (same `ruff.toml` rules as the reference project).
+* **Pre-commit hooks:** every commit runs whitespace, end-of-file, YAML/TOML, large-file, merge-conflict and debug-statement checks, Ruff (lint with auto-fix, format), mypy and gitleaks; the commit message must follow Conventional Commits (`feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`, `build`).
 * **Modular Design:** Clear separation of concerns between the conversation engine (`src/conversation/chain.py`, `src/conversation/criteria.py`), the Spotify integration (`src/spotify/`), session management (`src/session/session_store.py`, `src/session/browser_session.py`, `src/session/crypto.py`) and the UI (`app.py`, `src/ui/`). Each logic file stays within 100–150 lines.
 * **Containerization:** Docker guarantees environment consistency across local development and Cloud Run production.
 
