@@ -301,6 +301,7 @@ ai-playlist-generator/
 ├── ruff.toml                   # Linter/formatter config (same rules as ai-portfolio-assistant)
 ├── .pre-commit-config.yaml     # Git hooks: hygiene checks, Ruff, mypy, gitleaks, Conventional Commits
 ├── .env.example                # Secrets template: the three secret names, no values
+├── LICENSE                     # MIT License (the Spotify marks in public/ are excluded)
 ├── config/
 │   ├── base.toml               # Non-secret settings (local-development values)
 │   └── production.toml         # Production overrides, selected by APP_ENV=production
@@ -877,6 +878,14 @@ The project follows Spotify's [Developer Terms](https://developer.spotify.com/te
 - [ ] **Edit existing playlists:** append to or update a playlist previously created in the same session.
 - [ ] **Idle-tab disconnection:** close the Streamlit WebSocket after a period without input, so a forgotten tab stops consuming billable instance time (needs a reliable client-side way to end the Streamlit session).
 - [ ] **Observability:** Cloud Logging and Cloud Monitoring dashboards for latency, resolution rate and quota errors, plus alerts on Cloud Run instance time.
+---
+
+## 📄 License
+
+The source code is released under the [MIT License](LICENSE).
+
+The Spotify name, logo and icon (`public/spotify_*.svg`) are trademarks of Spotify AB, included only to attribute content to Spotify as the [Spotify Design Guidelines](https://developer.spotify.com/documentation/design) require; they are not covered by the MIT License and may not be reused outside that attribution. Spotify catalog data remains subject to the [Spotify Developer Terms](https://developer.spotify.com/terms).
+
 ---
 
 ## 📬 Contact & Links
