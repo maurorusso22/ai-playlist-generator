@@ -3,6 +3,8 @@ name: Test and deploy to Cloud Run
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 # Least privilege by default; the deploy job adds the OIDC token permission it needs.
 permissions:
@@ -23,7 +25,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install dependencies
         run: pip install --no-cache-dir -r requirements.txt
@@ -39,6 +41,8 @@ jobs:
 
   deploy:
     needs: test
+    # Pull requests (forks included) only run the tests: no GCP credentials outside main.
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
 
     permissions:
@@ -47,17 +51,17 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Authenticate to GCP
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ env.SERVICE_ACCOUNT }}
           project_id: ${{ env.PROJECT_ID }}
 
       - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
@@ -72,7 +76,7 @@ jobs:
       # Only the image changes: timeout, affinity, env and secrets stay as Terraform set them,
       # and skipping the default labels keeps the revision template free of Terraform drift.
       - name: Deploy to Cloud Run
-        uses: google-github-actions/deploy-cloudrun@v2
+        uses: google-github-actions/deploy-cloudrun@v3
         with:
           service: playlist-generator
           region: ${{ env.REGION }}

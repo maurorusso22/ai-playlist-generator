@@ -261,7 +261,7 @@ The application is containerized with Docker (`python:3.12.13-slim-bookworm`, bu
 * **Scaling:** min 0 / max 1 instances, 1 vCPU / 512 MiB, port 8501, so the service scales to zero when idle.
 * **WebSockets:** Streamlit keeps one WebSocket open per browser tab and Cloud Run caps every request, WebSockets included, at the request timeout. The service therefore uses `timeout = "3600s"` and **session affinity**.
 * **Configuration:** settings and secrets never mix. Non-secret settings are TOML files baked into the image (`config/base.toml`, overridden key by key by `config/production.toml`, selected by the `APP_ENV=production` variable that Terraform sets); `GOOGLE_API_KEY`, `SPOTIFY_CLIENT_SECRET` and `SESSION_ENCRYPTION_KEY` are injected from Secret Manager via `secret_key_ref`.
-* **CI/CD:** on every push to `main`, GitHub Actions runs a `test` job (`ruff check`, `ruff format --check`, `pytest tests/unit`) and then a `deploy` job that authenticates through Workload Identity Federation, builds a `linux/amd64` image tagged with the commit SHA, pushes it to Artifact Registry and deploys a new Cloud Run revision.
+* **CI/CD:** on every pull request to `main`, GitHub Actions runs a `test` job (`ruff check`, `ruff format --check`, `pytest tests/unit`); on every push to `main` the same job is followed by a `deploy` job that authenticates through Workload Identity Federation, builds a `linux/amd64` image tagged with the commit SHA, pushes it to Artifact Registry and deploys a new Cloud Run revision.
 
 ---
 
@@ -280,7 +280,7 @@ The application is containerized with Docker (`python:3.12.13-slim-bookworm`, bu
 | **Hosting** | Google Cloud Run | Serverless container execution with scale-to-zero and a single-instance cap. |
 | **UI** | Streamlit + custom CSS/HTML + `localStorage` bridge component | Themed chat interface with animated effects. |
 | **Containerization** | Docker (`python:3.12.13-slim-bookworm`, `linux/amd64`) | Packaging the application for consistent deployments. |
-| **CI/CD** | GitHub Actions + Workload Identity Federation | Lint/test and keyless deploy on push to `main`. |
+| **CI/CD** | GitHub Actions + Workload Identity Federation | Lint/test on pull requests; lint/test and keyless deploy on push to `main`. |
 | **Quality** | Ruff, mypy, pytest, pytest-mock, `respx`, pre-commit, gitleaks | Linting/formatting, type checking, offline tests (`respx` mocks `httpx`) and secret scanning on every commit. |
 
 **Other libraries:** `pydantic` (v2) · `cryptography` (Fernet) · `cachetools` (rate limiting) · `google-cloud-firestore` · `httpx` · `python-dotenv` · `streamlit-js-eval`
@@ -371,7 +371,7 @@ ai-playlist-generator/
 ├── docs/
 │   ├── deployment-00-overview.md … deployment-07-troubleshooting.md  # Deployment runbook, one file per phase
 │   └── plan.md                 # Implementation plan — not committed
-└── .github/workflows/deploy.yml  # Test + deploy on push to main
+└── .github/workflows/deploy.yml  # Test on PRs, test + deploy on push to main
 ```
 
 > `docs/plan.md` is listed in `.gitignore` and is not part of the repository. `scripts/spotify_spike.py` is a development-only tool and is excluded from the Docker image.
@@ -686,7 +686,7 @@ cd ..
 
 The service is created with min 0 / max 1 instances, 1 vCPU / 512 MiB, a `3600s` request timeout and session affinity (see [Serverless Hosting](#7-serverless-hosting)).
 
-**Enable continuous deployment:** set `PROJECT_ID: YOUR_PROJECT_ID` and `SERVICE_ACCOUNT: playlist-generator@YOUR_PROJECT_ID.iam.gserviceaccount.com` in the `env` block of `.github/workflows/deploy.yml`, then store the Workload Identity provider name as the `WIF_PROVIDER` secret of the GitHub repository. From then on, every push to `main` runs the `test` and `deploy` jobs.
+**Enable continuous deployment:** set `PROJECT_ID: YOUR_PROJECT_ID` and `SERVICE_ACCOUNT: playlist-generator@YOUR_PROJECT_ID.iam.gserviceaccount.com` in the `env` block of `.github/workflows/deploy.yml`, then store the Workload Identity provider name as the `WIF_PROVIDER` secret of the GitHub repository. From then on, every push to `main` runs the `test` and `deploy` jobs, while pull requests to `main` run only `test`.
 ```bash
 gcloud iam workload-identity-pools providers describe github-oidc \
   --workload-identity-pool=github-actions \
