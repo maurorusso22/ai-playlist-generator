@@ -99,31 +99,23 @@ def test_best_artist_match_wins(search: respx.Route) -> None:
         _item("Animals - Radio Edit", "Martin Garrix", "mg"),
     ]
     [track] = resolve_tracks([TrackSuggestion(title="Animals", artist="Martin Garrix")], 1)
-    assert (track.found, track.spotify_id, track.artists) == (True, "mg", ["Martin Garrix"])
+    assert (track.spotify_id, track.artists) == ("mg", ["Martin Garrix"])
     assert track.image_url == "https://i.scdn.co/image/64"
 
 
-def test_unrelated_results_are_not_found(search: respx.Route) -> None:
-    """Below the threshold the entry keeps the suggestion's title/artist and no Spotify data."""
+def test_unrelated_results_are_dropped(search: respx.Route) -> None:
+    """A suggestion whose results all score below the threshold is left out."""
     CATALOG["Levels"] = [_item("Lean On", "Major Lazer"), _item("Levels", "Nick Jonas")]
-    [track] = resolve_tracks([TrackSuggestion(title="Levels", artist="Avicii")], 1)
-    assert (track.found, track.name, track.artists, track.uri) == (
-        False,
-        "Levels",
-        ["Avicii"],
-        None,
-    )
+    assert resolve_tracks([TrackSuggestion(title="Levels", artist="Avicii")], 1) == []
 
 
 def test_over_generation_keeps_first_found_in_order(search: respx.Route) -> None:
-    """20 candidates, #3 and #7 missing, size 16: 16 found in order plus 2 flagged entries."""
+    """20 candidates, #3 and #7 missing, size 16: the first 16 found, in order, nothing else."""
     CATALOG.update(
         {f"Song {i}": [_item(f"Song {i}", f"Artist {i}")] for i in range(1, 21) if i not in (3, 7)}
     )
     result = resolve_tracks(_songs(20), 16)
-    assert [t.name for t in result] == [f"Song {i}" for i in range(1, 19)]
-    assert sum(t.found for t in result) == 16
-    assert [t.name for t in result if not t.found] == ["Song 3", "Song 7"]
+    assert [t.name for t in result] == [f"Song {i}" for i in range(1, 19) if i not in (3, 7)]
 
 
 def test_dedup_within_call_but_no_cross_request_cache(search: respx.Route) -> None:

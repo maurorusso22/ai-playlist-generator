@@ -15,7 +15,7 @@ from tests.unit.app_builders import draft_state
 from tests.unit.app_harness import PLAYLIST_ID, Mocks, click, install_mocks, labels, run_app, texts
 
 PLAYLIST_URL = f"https://open.spotify.com/playlist/{PLAYLIST_ID}"  # Link the notice must carry
-FOUND_URIS = [f"spotify:track:id{i}" for i in range(14)]  # URIs of the 14 found tracks
+TRACK_URIS = [f"spotify:track:id{i}" for i in range(14)]  # URIs of the 14 draft tracks
 
 
 @pytest.fixture
@@ -32,11 +32,11 @@ def mocks(mocker: MockerFixture) -> Mocks:
 
 
 def test_create_calls_spotify_once_and_posts_the_link(mocks: Mocks) -> None:
-    """Create calls Spotify once with found URIs only and posts the playlist link."""
-    at = run_app(mocks, draft_state(found=14, missing=2))
+    """Create calls Spotify once with the draft's URIs and posts the playlist link."""
+    at = run_app(mocks, draft_state(tracks=14))
     at = click(at, "Create on Spotify")
     mocks.spotify.create_playlist.assert_called_once_with("access-1", "House Hits", "2010s house.")
-    mocks.spotify.add_items.assert_called_once_with("access-1", PLAYLIST_ID, FOUND_URIS)
+    mocks.spotify.add_items.assert_called_once_with("access-1", PLAYLIST_ID, TRACK_URIS)
     state = at.session_state["session"]
     assert PLAYLIST_URL in state.messages[-1].content and state.messages[-1].role == "notice"
     assert state.created_playlist.items_added and state.pending_action is None

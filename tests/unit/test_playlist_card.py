@@ -1,4 +1,4 @@
-"""Unit tests for the playlist card HTML: escaping, URL allowlist, not-found rows, artwork."""
+"""Unit tests for the playlist card HTML: escaping, URL allowlist, header, artwork."""
 
 import re
 
@@ -68,18 +68,10 @@ def test_found_track_links_to_spotify_in_a_new_tab() -> None:
     assert 'rel="noopener noreferrer"' in row and 'style="--i:3"' in row
 
 
-def test_not_found_track_has_badge_and_no_link() -> None:
-    """A not-found track is dimmed, badged and unlinked (FR-16)."""
-    track = ResolvedTrack(name="Lost", artists=["Nobody"], found=False)
-    row = track_row_html(track, 0)
-    assert "Not on Spotify" in row and "apg-missing" in row
-    assert "<a " not in row and "<img" not in row
-
-
-def test_not_found_track_never_links_even_with_a_url() -> None:
-    """A not-found track is never linked, even if it carries a URL."""
-    track = _track(found=False)
-    assert "<a " not in track_row_html(track, 0)
+def test_track_without_artwork_gets_a_placeholder() -> None:
+    """A track without album artwork gets the empty cover placeholder and no image."""
+    row = track_row_html(_track(image_url=None), 0)
+    assert "apg-cover-empty" in row and "<img" not in row
 
 
 def test_artwork_is_unaltered() -> None:
@@ -93,11 +85,10 @@ def test_artwork_is_unaltered() -> None:
     assert all(word not in tag for word in ("style", "class", "filter", "transform"))
 
 
-def test_header_counts_found_and_missing_tracks() -> None:
-    """The header shows the found and not-found counts."""
-    header = card_header_html(make_draft(18), make_tracks(16, 2), saved=False)
-    assert "16 tracks · 2 not found on Spotify" in header and "House Hits" in header
-    assert "not found" not in card_header_html(make_draft(4), make_tracks(4), saved=False)
+def test_header_counts_the_resolved_tracks() -> None:
+    """The header shows the number of resolved tracks, not the draft's candidate count."""
+    header = card_header_html(make_draft(18), make_tracks(16), saved=False)
+    assert ">16 tracks<" in header and "House Hits" in header
 
 
 def test_header_chip_tracks_the_save_state() -> None:

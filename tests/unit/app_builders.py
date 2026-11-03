@@ -18,17 +18,16 @@ from src.session import crypto
 from tests.unit.session_factory import NOW, make_state
 
 
-def make_tracks(found: int, missing: int = 0) -> list[ResolvedTrack]:
-    """Build resolved tracks: `found` matches followed by `missing` not-found entries.
+def make_tracks(count: int) -> list[ResolvedTrack]:
+    """Build resolved tracks with Spotify fields on the allowlisted hosts.
 
     Args:
-        found: Number of found tracks.
-        missing: Number of not-found entries.
+        count: Number of tracks.
 
     Returns:
         The tracks.
     """
-    hits = [
+    return [
         ResolvedTrack(
             spotify_id=f"id{i}",
             uri=f"spotify:track:id{i}",
@@ -37,14 +36,9 @@ def make_tracks(found: int, missing: int = 0) -> list[ResolvedTrack]:
             album=f"Album {i}",
             image_url=f"https://i.scdn.co/image/{i}",
             external_url=f"https://open.spotify.com/track/id{i}",
-            found=True,
         )
-        for i in range(found)
+        for i in range(count)
     ]
-    lost = [
-        ResolvedTrack(name=f"Lost {i}", artists=["Nobody"], found=False) for i in range(missing)
-    ]
-    return hits + lost
 
 
 def make_draft(size: int, candidates: int | None = None) -> PlaylistDraft:
@@ -107,15 +101,12 @@ def make_tokens(name: str | None = "Mauro") -> SpotifyTokens:
     )
 
 
-def draft_state(
-    mode: str = "spotify", found: int = 16, missing: int = 0, **fields: Any
-) -> SessionState:
+def draft_state(mode: str = "spotify", tracks: int = 16, **fields: Any) -> SessionState:
     """Build a session whose last message carries a draft card and its pending action.
 
     Args:
         mode: "spotify" (confirm_create, with tokens) or "guest" (login_to_save).
-        found: Found tracks of the draft.
-        missing: Not-found entries of the draft.
+        tracks: Resolved tracks of the draft.
         **fields: Field overrides.
 
     Returns:
@@ -124,9 +115,9 @@ def draft_state(
     kind = "confirm_create" if mode == "spotify" else "login_to_save"
     base: dict[str, Any] = {
         "mode": mode,
-        "draft": make_draft(found + missing),
+        "draft": make_draft(tracks),
         "draft_message_index": 1,
-        "resolved_tracks": make_tracks(found, missing),
+        "resolved_tracks": make_tracks(tracks),
         "pending_action": PendingAction.model_validate({"kind": kind, "message_index": 1}),
         "spotify_auth": crypto.encrypt_tokens(make_tokens()) if mode == "spotify" else None,
     }

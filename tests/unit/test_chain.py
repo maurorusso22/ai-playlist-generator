@@ -104,7 +104,7 @@ def test_new_message_already_in_history_is_sent_once(invoke: MagicMock) -> None:
 
 def test_draft_context_has_titles_and_never_spotify_data(invoke: MagicMock) -> None:
     """Only the LLM's own title/artist pairs are sent, even if the caller holds resolved data."""
-    resolved = ResolvedTrack(name="Animals", artists=["Garrix"], found=True, uri="spotify:track:a")
+    resolved = ResolvedTrack(name="Animals", artists=["Garrix"], uri="spotify:track:a")
     links = "https://open.spotify.com/playlist/xyz https://i.scdn.co/image/abc"
     invoke.return_value = _turn("revise_playlist")
     chain.run_turn("Shorter", [ChatMessage(role="notice", content=f"Saved: {links}")], DRAFT)

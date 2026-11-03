@@ -85,7 +85,7 @@ def test_load_unreadable_document_is_deleted_as_missing(doc: MagicMock) -> None:
 
 def test_save_turn_single_update_with_slid_expiry(doc: MagicMock) -> None:
     draft = PlaylistDraft(title="T", description="D", target_size=1, tracks=[])
-    track = ResolvedTrack(name="Animals", artists=["Martin Garrix"], found=False)
+    track = ResolvedTrack(name="Animals", artists=["Martin Garrix"])
     action = PendingAction(kind="login_to_save", message_index=1)
     reply = [ChatMessage(role="user", content="hi"), ChatMessage(role="assistant", content="ok")]
     state = session_store.save_turn(
