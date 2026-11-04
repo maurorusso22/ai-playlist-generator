@@ -249,11 +249,11 @@ All GCP resources are provisioned with **Terraform** (google provider `~> 5.0`),
 | Secret access | `google_secret_manager_secret_iam_member.app_api_key`, `.app_spotify_client_secret`, `.app_session_encryption_key` | `secretAccessor` on the three secrets only. |
 | Artifact Registry | `google_artifact_registry_repository.app` | Docker repository `playlist-generator` with cleanup policies (keep the 2 most recent versions, delete the rest). |
 | Cloud Run | `google_cloud_run_v2_service.app`, `google_cloud_run_v2_service_iam_member.public` | The service and its public invoker (`allUsers`). |
-| CI/CD identity | `google_iam_workload_identity_pool.github`, `google_iam_workload_identity_pool_provider.github`, plus IAM members | Keyless GitHub Actions deploys (pool `github-actions`, provider `github-oidc`). |
+| CI/CD identity | `google_service_account.deployer`, `google_iam_workload_identity_pool.github`, `google_iam_workload_identity_pool_provider.github`, plus IAM members | Keyless GitHub Actions deploys as `playlist-deployer` (pool `github-actions`, provider `github-oidc`), with grants scoped to the repository, the service and the runtime SA. |
 | Custom domain | `google_cloud_run_domain_mapping.custom` | Optional, created only when `custom_domain` is set. |
 
 * **Variables:** `project_id`, `region` (`us-central1`), `sessions_collection` (`sessions`, kept equal to `sessions.collection` by `make tf-apply`), `image_url`, `github_repo` (`maurorusso22/ai-playlist-generator`), `custom_domain` (empty by default). App settings are not Terraform inputs: they ship in the image under `config/`.
-* **Outputs:** `cloud_run_url`, `service_account_email`, `sessions_collection`, `project_id`, `custom_domain_mapping_records`.
+* **Outputs:** `cloud_run_url`, `service_account_email`, `deployer_service_account_email`, `sessions_collection`, `project_id`, `custom_domain_mapping_records`.
 * Secret **values** are created manually with `gcloud` and never appear in Terraform state.
 
 ### 7. Serverless Hosting
@@ -678,10 +678,11 @@ terraform apply \
   -target=google_cloud_run_v2_service_iam_member.public \
   -target=google_iam_workload_identity_pool.github \
   -target=google_iam_workload_identity_pool_provider.github \
+  -target=google_service_account.deployer \
   -target=google_service_account_iam_member.github_actions_impersonate \
-  -target=google_project_iam_member.artifact_registry_writer \
-  -target=google_project_iam_member.cloud_run_developer \
-  -target=google_service_account_iam_member.self_act_as \
+  -target=google_artifact_registry_repository_iam_member.deployer_writer \
+  -target=google_cloud_run_v2_service_iam_member.deployer_developer \
+  -target=google_service_account_iam_member.deployer_act_as_app \
   -var="project_id=YOUR_PROJECT_ID" \
   -var="image_url=$IMAGE_URL"
 cd ..
@@ -689,7 +690,7 @@ cd ..
 
 The service is created with min 0 / max 1 instances, 1 vCPU / 512 MiB, a `3600s` request timeout and session affinity (see [Serverless Hosting](#7-serverless-hosting)).
 
-**Enable continuous deployment:** set `PROJECT_ID: YOUR_PROJECT_ID` and `SERVICE_ACCOUNT: playlist-generator@YOUR_PROJECT_ID.iam.gserviceaccount.com` in the `env` block of `.github/workflows/deploy.yml`, then store the Workload Identity provider name as the `WIF_PROVIDER` secret of the GitHub repository. From then on, every push to `main` runs the `test` and `deploy` jobs, while pull requests to `main` run only `test`.
+**Enable continuous deployment:** set `PROJECT_ID: YOUR_PROJECT_ID` and `SERVICE_ACCOUNT: playlist-deployer@YOUR_PROJECT_ID.iam.gserviceaccount.com` in the `env` block of `.github/workflows/deploy.yml`, then store the Workload Identity provider name as the `WIF_PROVIDER` secret of the GitHub repository. From then on, every push to `main` runs the `test` and `deploy` jobs, while pull requests to `main` run only `test`.
 ```bash
 gcloud iam workload-identity-pools providers describe github-oidc \
   --workload-identity-pool=github-actions \
@@ -814,8 +815,9 @@ redirect_uri = "https://yourdomain.com/"
 * **Keyless CI/CD:** GitHub Actions authenticates through **Workload Identity Federation**; no service account key exists. The repository only stores the provider name (`WIF_PROVIDER`).
 
 ### 2. IAM & Principle of Least Privilege
-* **Dedicated Service Account:** The Cloud Run instance runs as `playlist-generator` with `roles/datastore.user` and `roles/secretmanager.secretAccessor` scoped to the three secrets only. The deploy roles needed by the CI identity (`artifactregistry.writer`, `run.developer`, `serviceAccountUser` on itself) are the only additions.
-* **No Project-Level Admin Rights:** The application holds no owner/editor or IAM-admin roles. Because the same service account is also the CI deploy identity (as in the reference project), the runtime additionally holds `run.developer` and `artifactregistry.writer`; a separate deployer service account for Workload Identity Federation would remove these from the runtime.
+* **Dedicated Runtime Service Account:** The Cloud Run instance runs as `playlist-generator` with only `roles/datastore.user` and `roles/secretmanager.secretAccessor` scoped to the three secrets. It holds no deploy rights, so a compromised container cannot push images or roll out a new revision of itself.
+* **Separate Deploy Service Account:** GitHub Actions impersonates `playlist-deployer`, whose grants are each scoped to a single resource: `artifactregistry.writer` on the `playlist-generator` repository, `run.developer` on the `playlist-generator` service and `iam.serviceAccountUser` on the runtime service account (required to deploy revisions that run as it). It cannot read secrets or Firestore.
+* **No Project-Level Admin Rights:** Neither service account holds owner/editor, IAM-admin or any other project-level deploy role.
 * **Locked-down Firestore:** security rules deny all client access; only the server-side SDK, authenticated as the service account, can read or write sessions.
 
 ### 3. Spotify OAuth & Token Protection
