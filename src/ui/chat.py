@@ -1,14 +1,14 @@
 """Chat screen: header with mode badge, history with card and buttons, chat input.
 
 LLM and Spotify text is rendered with plain `st.markdown` (never `unsafe_allow_html`); the
-only raw HTML comes from the playlist card, which escapes every field.
+only raw HTML comes from the playlist and saved-playlist cards, which escape every field.
 """
 
 import streamlit as st
 
 from src.models.session.session_state import SessionState
 from src.session import crypto
-from src.ui import actions, errors, login, playlist_card, styles, turn
+from src.ui import actions, errors, login, playlist_card, saved_card, styles, turn
 from src.ui import state as ui_state
 
 WELCOME = (  # First assistant bubble of an empty chat (not stored, never sent to the LLM)
@@ -64,7 +64,10 @@ def _history(state: SessionState, show_actions: bool) -> None:
         role = "user" if message.role == "user" else "assistant"
         avatar = {"user": None, "assistant": turn.ASSISTANT_AVATAR}.get(message.role, NOTICE_AVATAR)
         with st.chat_message(role, avatar=avatar):
-            st.markdown(message.content)
+            if message.saved_playlist is not None:
+                saved_card.render_saved_card(message.saved_playlist)
+            else:
+                st.markdown(message.content)
             if index == state.draft_message_index:
                 playlist_card.render_playlist_card(state)
             if show_actions and index == last:

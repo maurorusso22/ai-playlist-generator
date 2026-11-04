@@ -25,7 +25,7 @@ from src.spotify.errors import (
     SpotifyForbiddenError,
     SpotifyReauthRequired,
 )
-from src.ui import errors
+from src.ui import errors, saved_card
 from src.ui import state as ui_state
 
 PLAYLIST_URL = "https://open.spotify.com/playlist/{id}"  # Public link of a created playlist
@@ -49,7 +49,7 @@ def _save_tokens(tokens: SpotifyTokens) -> SpotifyTokens:
 
 
 def _create_and_fill(client: spotify_client.SpotifyClient, tokens: SpotifyTokens) -> None:
-    """Create the playlist unless already created, add the draft's tracks, post the link.
+    """Create the playlist unless already created, add the draft's tracks, post its card.
 
     Args:
         client: Spotify Web API client.
@@ -71,8 +71,11 @@ def _create_and_fill(client: spotify_client.SpotifyClient, tokens: SpotifyTokens
     done = created.model_copy(update={"items_added": True})
     ui_state.set_current(state.model_copy(update={"created_playlist": done}))
     title = errors.escape_markdown(draft.title)
-    text = f"Saved **{title}** to Spotify with {len(uris)} tracks: {created.url}"
-    notice = ChatMessage(role="notice", content=text)
+    saved = saved_card.build_saved_playlist(
+        draft, state.resolved_tracks, created.url, tokens.display_name
+    )
+    text = f"Saved **{title}** to Spotify with {len(uris)} tracks."
+    notice = ChatMessage(role="notice", content=text, saved_playlist=saved)
     if ui_state.persist(
         lambda: session_store.save_turn(state, [notice], created_playlist=done, pending_action=None)
     ):

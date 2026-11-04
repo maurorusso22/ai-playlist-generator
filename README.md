@@ -133,7 +133,7 @@ sequenceDiagram
         UI->>FS: Store created playlist id (idempotency guard)
         UI->>SP: POST /v1/playlists/{id}/items (found URIs only)
         UI->>FS: Clear pending action
-        UI-->>U: Playlist link + celebration effect
+        UI-->>U: Saved-playlist card + celebration effect
     end
     Note over IG,SP: Spotify data (ids, names, images, match results) never flows into Gemma or Gemini
 ```
@@ -205,7 +205,7 @@ Implemented in `src/session/session_store.py`, `src/session/browser_session.py` 
   | `created_at`, `last_message_at` | Timestamps of creation and of the latest activity. |
   | `expires_at` | `last_message_at + sessions.ttl_minutes`; checked on every read and used as the Firestore TTL field. |
   | `mode` | `guest` or `spotify`. |
-  | `messages` | List of `{role, content, created_at}` (`role`: `user`, `assistant` or `notice`; `notice` messages are app-generated and never sent to the LLM), capped to the last 50 entries. |
+  | `messages` | List of `{role, content, created_at, saved_playlist}` (`role`: `user`, `assistant` or `notice`; `notice` messages are app-generated and never sent to the LLM; `saved_playlist` is the snapshot rendered as the saved-playlist card), capped to the last 50 entries. |
   | `draft` | The LLM's own `PlaylistDraft` (title, description, title/artist suggestions). |
   | `draft_message_index` | Index of the message under which the current draft's card is rendered. |
   | `resolved_tracks` | `ResolvedTrack` list for the current draft only, overwritten by the next draft and deleted with the session; kept just for display and creation (immediate use, per Spotify's Developer Terms). |
@@ -357,6 +357,8 @@ ai-playlist-generator/
 │       ├── turn.py             # User message → LLM turn → resolution
 │       ├── errors.py           # Error → user-facing message mapping
 │       ├── playlist_card.py    # Compact, expandable playlist card
+│       ├── saved_card.py       # Saved-playlist card: cover mosaic, details, Open on Spotify
+│       ├── spotify_markup.py   # Spotify URL allowlist and official logo markup
 │       ├── actions.py          # Confirmation buttons under the latest message
 │       ├── spotify_save.py     # Idempotent playlist creation on Spotify
 │       ├── login.py            # Spotify login start and same-tab redirect
@@ -520,6 +522,7 @@ python -m scripts.spotify_spike
 | `src/config/` | Unit | Committed TOML files valid, overlay merged key by key, unknown `APP_ENV`/keys/sections rejected, strict types, size bounds and redirect-URI rules (`test_settings.py`, `test_config_files.py`); missing secrets reported together and hidden from `repr()` (`test_secrets.py`). |
 | `src/session/browser_session.py` | Unit | Tri-state `localStorage` read (not loaded / empty / valid UUID4) with the bridge mocked (`test_browser_session.py`). |
 | `src/ui/playlist_card.py` | Unit | `html.escape` on every dynamic field, Spotify URL allowlist, track count, artwork placeholder, unaltered artwork (`test_playlist_card.py`). |
+| `src/ui/saved_card.py` | Unit | Snapshot of the added tracks only, 2x2 mosaic or single cover, duration format, escaping and Spotify URL allowlist (`test_saved_card.py`). |
 | `src/conversation/chain.py` | Unit | Structured-output parsing, history containing only the LLM's own draft, clarification override, off-topic and Gemini error mapping, with a mocked LLM (`test_chain.py`). |
 | `src/spotify/client.py` | Unit | Search, profile, playlist and items endpoints, `Retry-After` and exponential backoff, `QUOTA_EXCEEDED`, and the mapping of every documented error status with Spotify's `error.message`, via `respx` (`test_spotify_client.py`). |
 | `src/spotify/auth.py` | Unit | App-token reuse until expiry, `state` verification, code exchange, refresh, re-authorization on `invalid_grant` and the 403 allowlist case (`test_spotify_auth.py`). |
