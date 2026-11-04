@@ -16,6 +16,11 @@ output "service_account_email" {
   value       = google_service_account.app.email
 }
 
+output "deployer_service_account_email" {
+  description = "Email of the CI/CD deploy service account (SERVICE_ACCOUNT in .github/workflows/deploy.yml)."
+  value       = google_service_account.deployer.email
+}
+
 output "cloud_run_url" {
   description = "Public URL of the Cloud Run service (available after the Phase 7 apply)."
   value       = google_cloud_run_v2_service.app.uri
