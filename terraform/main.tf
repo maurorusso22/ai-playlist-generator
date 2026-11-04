@@ -15,7 +15,8 @@ provider "google" {
 }
 
 locals {
-  app_name = "playlist-generator" # Runtime SA, Artifact Registry repo and Cloud Run service name
+  app_name      = "playlist-generator" # Runtime SA, Artifact Registry repo and Cloud Run service name
+  deployer_name = "playlist-deployer"  # CI/CD deploy SA impersonated by GitHub Actions
 
   # Secrets are created with gcloud, so their values never enter the Terraform state.
   secret_ids = {
@@ -270,8 +271,42 @@ resource "google_cloud_run_v2_service_iam_member" "public" {
   member   = "allUsers"
 }
 
+# ── CI/CD deploy identity (applied in Phase 7) ─────────────────────────────────
+# Separate from the runtime SA, so a compromised container cannot push images or deploy
+# revisions. Every grant is scoped to the single resource the deploy touches.
+
+resource "google_service_account" "deployer" {
+  project      = var.project_id
+  account_id   = local.deployer_name
+  display_name = "Playlist Generator Deployer"
+  description  = "GitHub Actions deploy identity: pushes images and deploys Cloud Run revisions."
+}
+
+resource "google_artifact_registry_repository_iam_member" "deployer_writer" {
+  project    = var.project_id
+  location   = google_artifact_registry_repository.app.location
+  repository = google_artifact_registry_repository.app.name
+  role       = "roles/artifactregistry.writer"
+  member     = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "deployer_developer" {
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.app.name
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+# Deploying a revision that runs as the runtime SA requires actAs on that SA.
+resource "google_service_account_iam_member" "deployer_act_as_app" {
+  service_account_id = google_service_account.app.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.deployer.email}"
+}
+
 # ── Workload Identity Federation (GitHub Actions → GCP, applied in Phase 7) ────
-# Keyless CI: GitHub OIDC tokens from the allowed repository impersonate the app SA.
+# Keyless CI: GitHub OIDC tokens from the allowed repository impersonate the deployer SA.
 
 resource "google_iam_workload_identity_pool" "github" {
   project                   = var.project_id
@@ -300,29 +335,9 @@ resource "google_iam_workload_identity_pool_provider" "github" {
 }
 
 resource "google_service_account_iam_member" "github_actions_impersonate" {
-  service_account_id = google_service_account.app.name
+  service_account_id = google_service_account.deployer.name
   role               = "roles/iam.workloadIdentityUser"
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_repo}"
-}
-
-# The app SA doubles as the CI deploy identity (as in the reference project), hence these roles.
-resource "google_project_iam_member" "artifact_registry_writer" {
-  project = var.project_id
-  role    = "roles/artifactregistry.writer"
-  member  = "serviceAccount:${google_service_account.app.email}"
-}
-
-resource "google_project_iam_member" "cloud_run_developer" {
-  project = var.project_id
-  role    = "roles/run.developer"
-  member  = "serviceAccount:${google_service_account.app.email}"
-}
-
-# Deploying a revision that runs as the SA requires actAs on the SA itself.
-resource "google_service_account_iam_member" "self_act_as" {
-  service_account_id = google_service_account.app.name
-  role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${google_service_account.app.email}"
 }
 
 # ── Custom domain (optional, Phase 7) ──────────────────────────────────────────

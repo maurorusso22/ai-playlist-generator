@@ -84,10 +84,11 @@ terraform -chdir=terraform apply \
   -target=google_cloud_run_v2_service_iam_member.public \
   -target=google_iam_workload_identity_pool.github \
   -target=google_iam_workload_identity_pool_provider.github \
+  -target=google_service_account.deployer \
   -target=google_service_account_iam_member.github_actions_impersonate \
-  -target=google_project_iam_member.artifact_registry_writer \
-  -target=google_project_iam_member.cloud_run_developer \
-  -target=google_service_account_iam_member.self_act_as \
+  -target=google_artifact_registry_repository_iam_member.deployer_writer \
+  -target=google_cloud_run_v2_service_iam_member.deployer_developer \
+  -target=google_service_account_iam_member.deployer_act_as_app \
   -var="project_id=YOUR_PROJECT_ID" \
   -var="image_url=us-central1-docker.pkg.dev/YOUR_PROJECT_ID/playlist-generator/playlist-generator:latest"
 ```

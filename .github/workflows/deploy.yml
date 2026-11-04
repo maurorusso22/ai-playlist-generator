@@ -10,12 +10,12 @@ on:
 permissions:
   contents: read
 
-# GCP project and runtime identity provisioned by Terraform (README "Deployment on GCP", Step 6).
+# GCP project and deploy identity provisioned by Terraform (README "Deployment on GCP", Step 6).
 env:
   PROJECT_ID: ai-playlist-generator-mr
   REGION: us-central1
   IMAGE_NAME: playlist-generator
-  SERVICE_ACCOUNT: playlist-generator@ai-playlist-generator-mr.iam.gserviceaccount.com
+  SERVICE_ACCOUNT: playlist-deployer@ai-playlist-generator-mr.iam.gserviceaccount.com
 
 jobs:
   test:

@@ -52,7 +52,7 @@ Terraform ignores image changes on the service (`ignore_changes` on the containe
 ### Continuous deployment (GitHub Actions)
 
 1. Make sure the repository is the one allowed by Workload Identity Federation: the `github_repo` Terraform variable (`owner/name`). If it differs, re-apply the WIF resources with `-var="github_repo=YOUR_GITHUB_REPO"`.
-2. Set `PROJECT_ID` and `SERVICE_ACCOUNT` (`playlist-generator@YOUR_PROJECT_ID.iam.gserviceaccount.com`) in the `env` block of `.github/workflows/deploy.yml`.
+2. Set `PROJECT_ID` and `SERVICE_ACCOUNT` (`playlist-deployer@YOUR_PROJECT_ID.iam.gserviceaccount.com`, the `deployer_service_account_email` output) in the `env` block of `.github/workflows/deploy.yml`.
 3. Store the provider name as the `WIF_PROVIDER` repository secret. The repository must already exist on GitHub, otherwise `gh` fails with `HTTP 404` on the secrets public key:
    ```bash
    gcloud iam workload-identity-pools providers describe github-oidc --workload-identity-pool=github-actions --location=global --project=YOUR_PROJECT_ID --format="value(name)" | gh secret set WIF_PROVIDER --repo YOUR_GITHUB_REPO
