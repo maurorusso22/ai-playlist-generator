@@ -276,6 +276,59 @@
   .apg-logo-dark { display: inline; }
 }
 
+/* ── Saved-playlist card: cover or 2x2 mosaic, details, Open on Spotify ──── */
+.apg-saved { display: flex; flex-wrap: wrap; align-items: center; gap: 1.25rem; }
+.apg-saved-cover {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(2, 64px);
+  width: 128px;
+  height: 128px;
+  line-height: 0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.apg-saved-cover img:only-child { grid-column: span 2; }
+.apg-saved-body { flex: 1 1 14rem; min-width: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+.apg-saved-title {
+  font-family: var(--apg-display);
+  font-size: 1.5rem;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+.apg-saved-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.4rem;
+}
+.apg-saved-logo { display: inline-flex; line-height: 0; }
+.apg-saved-logo img { width: auto; }
+a.apg-open-spotify {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 3rem;
+  padding: 0 1.25rem;
+  border-radius: 999px;
+  background: var(--apg-spotify);
+  color: #000;
+  font-weight: 700;
+  text-decoration: none;
+}
+a.apg-open-spotify:hover { background: var(--apg-spotify-hover); color: #000; }
+a.apg-open-spotify::before {
+  content: "";
+  flex: none;
+  width: 24px;
+  height: 24px;
+  background: var(--apg-spotify-icon) center / contain no-repeat;
+}
+
 /* ── Equalizer indicator, skeleton shimmer, confetti ───────────────────────── */
 .apg-eq { display: inline-flex; gap: 3px; align-items: flex-end; height: 18px; }
 .apg-eq span {

@@ -14,7 +14,7 @@ from src.ui import errors
 from tests.unit.app_builders import draft_state
 from tests.unit.app_harness import PLAYLIST_ID, Mocks, click, install_mocks, labels, run_app, texts
 
-PLAYLIST_URL = f"https://open.spotify.com/playlist/{PLAYLIST_ID}"  # Link the notice must carry
+PLAYLIST_URL = f"https://open.spotify.com/playlist/{PLAYLIST_ID}"  # Link the saved card must carry
 TRACK_URIS = [f"spotify:track:id{i}" for i in range(14)]  # URIs of the 14 draft tracks
 
 
@@ -31,14 +31,17 @@ def mocks(mocker: MockerFixture) -> Mocks:
     return install_mocks(mocker)
 
 
-def test_create_calls_spotify_once_and_posts_the_link(mocks: Mocks) -> None:
-    """Create calls Spotify once with the draft's URIs and posts the playlist link."""
+def test_create_calls_spotify_once_and_posts_the_saved_card(mocks: Mocks) -> None:
+    """Create calls Spotify once with the draft's URIs and posts the saved-playlist card."""
     at = run_app(mocks, draft_state(tracks=14))
     at = click(at, "Create on Spotify")
     mocks.spotify.create_playlist.assert_called_once_with("access-1", "House Hits", "2010s house.")
     mocks.spotify.add_items.assert_called_once_with("access-1", PLAYLIST_ID, TRACK_URIS)
     state = at.session_state["session"]
-    assert PLAYLIST_URL in state.messages[-1].content and state.messages[-1].role == "notice"
+    notice = state.messages[-1]
+    assert notice.role == "notice" and notice.saved_playlist is not None
+    assert notice.saved_playlist.url == PLAYLIST_URL and notice.saved_playlist.track_count == 14
+    assert PLAYLIST_URL not in notice.content and "apg-saved" in texts(at)
     assert state.created_playlist.items_added and state.pending_action is None
     assert "Create on Spotify" not in labels(at) and "apg-confetti" in texts(at)
     at.run()
@@ -56,7 +59,8 @@ def test_add_items_rate_limit_keeps_buttons_and_retry_resumes(mocks: Mocks) -> N
     at = click(at, "Create on Spotify")
     assert mocks.spotify.add_items.call_count == 2
     assert mocks.spotify.create_playlist.call_count == 1
-    assert PLAYLIST_URL in at.session_state["session"].messages[-1].content
+    saved = at.session_state["session"].messages[-1].saved_playlist
+    assert saved is not None and saved.url == PLAYLIST_URL
 
 
 def test_already_created_playlist_is_not_created_again(mocks: Mocks) -> None:
