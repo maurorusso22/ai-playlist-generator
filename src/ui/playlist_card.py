@@ -15,34 +15,12 @@ from src.models.conversation.playlist_draft import PlaylistDraft
 from src.models.session.created_playlist import CreatedPlaylist
 from src.models.session.session_state import SessionState
 from src.models.spotify.resolved_track import ResolvedTrack
-from src.ui import styles
+from src.ui.spotify_markup import IMAGE_URL_PREFIX, TRACK_URL_PREFIX, safe_url, spotify_logo_html
 
-TRACK_URL_PREFIX = "https://open.spotify.com/"  # Only links to Spotify's web player are kept
-IMAGE_URL_PREFIX = "https://i.scdn.co/"  # Only Spotify's image CDN is kept
 COLLAPSED_ROWS = 5  # Rows visible before the "Show all" expander
 COVER_PX = 56  # Rendered album cover size
 CARD_KEY = "playlist_card"  # Container key; styles.css draws the card on its st-key class
-SPOTIFY_LOGOS = (  # Official full logos, unmodified: (CSS theme class, file) per surface
-    ("light", styles.PUBLIC_DIR / "spotify_logo_black.svg"),
-    ("dark", styles.PUBLIC_DIR / "spotify_logo_white.svg"),
-)
-LOGO_PX = 24  # Full logo height; its width (~88px) stays above Spotify's 70px minimum
 ATTRIBUTION = "Metadata provided by Spotify"  # Text attribution required near Spotify content
-
-
-def safe_url(url: str | None, prefix: str) -> str | None:
-    """Accept a URL only on an allowlisted host, escaped for an HTML attribute.
-
-    Args:
-        url: URL coming from Spotify data.
-        prefix: Required scheme, host and leading slash.
-
-    Returns:
-        The escaped URL, or None when it is missing or not allowlisted.
-    """
-    if not url or not url.startswith(prefix):
-        return None
-    return html.escape(url, quote=True)
 
 
 def track_row_html(track: ResolvedTrack, index: int) -> str:
@@ -102,20 +80,13 @@ def card_header_html(draft: PlaylistDraft, tracks: list[ResolvedTrack], saved: b
 def attribution_html(created: CreatedPlaylist | None) -> str:
     """Build the Spotify attribution line, with the playlist link once it is created.
 
-    Both logo variants are emitted; the stylesheet shows the one matching the color scheme.
-
     Args:
         created: The playlist created on Spotify, if any.
 
     Returns:
         The attribution markup.
     """
-    uris = ((theme, styles.data_uri(path)) for theme, path in SPOTIFY_LOGOS)
-    logo = "".join(
-        f'<img class="apg-logo-{theme}" src="{uri}" alt="Spotify" height="{LOGO_PX}">'
-        for theme, uri in uris
-        if uri
-    )
+    logo = spotify_logo_html()
     link = safe_url(created.url, TRACK_URL_PREFIX) if created and created.items_added else None
     anchor = (
         f' · <a href="{link}" target="_blank" rel="noopener">Open on Spotify</a>' if link else ""
