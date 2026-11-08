@@ -84,6 +84,24 @@ def _framed(text: str, history: Sequence[ChatMessage]) -> str:
     )
 
 
+def classify(text: str, history: Sequence[ChatMessage]) -> str:
+    """Ask Gemma for its verdict on a message, with no fail-open handling.
+
+    Errors propagate, so the AI evals can tell a failed call from a verdict;
+    `_is_out_of_scope` is the fail-open wrapper the app uses.
+
+    Args:
+        text: The new user message.
+        history: Stored chat messages before the new one.
+
+    Returns:
+        The answer's first word, uppercased (IN, OUT, another word, or "" when there is none).
+    """
+    messages = [SystemMessage(GATE_PROMPT), HumanMessage(_framed(text, history))]
+    match = _FIRST_WORD.search(_build_gate().invoke(messages).text)
+    return match.group().upper() if match else ""
+
+
 def _is_out_of_scope(text: str, history: Sequence[ChatMessage]) -> bool:
     """Ask Gemma whether the message is clearly off-topic; every doubt or failure says no.
 
@@ -98,15 +116,12 @@ def _is_out_of_scope(text: str, history: Sequence[ChatMessage]) -> bool:
         return False
     started = time.perf_counter()
     try:
-        messages = [SystemMessage(GATE_PROMPT), HumanMessage(_framed(text, history))]
-        answer = _build_gate().invoke(messages).text
+        word = classify(text, history)
     except Exception as exc:  # Fail open: a gate failure must never block a message
         _logger.warning("Intent gate failed open (%s): %s", type(exc).__name__, exc)
         return False
-    match = _FIRST_WORD.search(answer)
-    word = match.group().upper() if match else ""
     if word not in (ALLOW_WORD, BLOCK_WORD):
-        _logger.warning("Intent gate failed open on an unexpected answer: %r", answer[:40])
+        _logger.warning("Intent gate failed open on an unexpected answer: %r", word)
     _logger.info("Intent gate: %s in %.2fs", word or "no answer", time.perf_counter() - started)
     return word == BLOCK_WORD
 

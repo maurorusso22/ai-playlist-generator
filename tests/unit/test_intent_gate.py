@@ -85,11 +85,13 @@ def test_thinking_blocks_are_ignored(gemma: MagicMock) -> None:
 def test_failures_fail_open_and_are_logged(
     gemma: MagicMock, error: Exception, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Quota errors, timeouts and anything else let the message through, with a warning."""
+    """Errors let the message through with a warning; the raw classifier raises them (evals)."""
     gemma.return_value.invoke.side_effect = error
     with caplog.at_level(logging.WARNING, logger="src.guards.intent_gate"):
         assert intent_gate.gate_turn("Some techno", []) is None
     assert "failed open" in caplog.text
+    with pytest.raises(type(error)):
+        intent_gate.classify("Some techno", [])
 
 
 def test_unexpected_answer_is_logged(gemma: MagicMock, caplog: pytest.LogCaptureFixture) -> None:
