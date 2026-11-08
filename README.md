@@ -296,7 +296,7 @@ ai-playlist-generator/
 ├── app.py                      # Streamlit entry point: bootstrap, routing, OAuth callback
 ├── Dockerfile                  # Container definition for Cloud Run (linux/amd64)
 ├── .dockerignore               # Keeps secrets, venv and dev-only files out of the build context
-├── Makefile                    # run, test-unit, test-integration, test-smoke, test, docker-*, tf-apply
+├── Makefile                    # run, test-unit, test-integration, test-smoke, test, eval, docker-*, tf-apply
 ├── requirements.txt            # Python dependencies
 ├── ruff.toml                   # Linter/formatter config (same rules as ai-portfolio-assistant)
 ├── .pre-commit-config.yaml     # Git hooks: hygiene checks, Ruff, mypy, gitleaks, Conventional Commits
@@ -304,7 +304,8 @@ ai-playlist-generator/
 ├── LICENSE                     # MIT License (the Spotify marks in public/ are excluded)
 ├── config/
 │   ├── base.toml               # Non-secret settings (local-development values)
-│   └── production.toml         # Production overrides, selected by APP_ENV=production
+│   ├── production.toml         # Production overrides, selected by APP_ENV=production
+│   └── evals.toml              # AI eval settings: comparison models, retries (never read by the app)
 ├── .streamlit/
 │   └── config.toml             # Light and dark "Daylight" theme
 ├── public/
@@ -365,13 +366,18 @@ ai-playlist-generator/
 │       └── oauth_callback.py   # OAuth callback: state check, token exchange
 ├── tests/
 │   ├── unit/                   # Offline tests (LLM, Spotify, Firestore mocked)
-│   └── integration/            # Live Gemini, Spotify, Firestore, smoke tests
+│   ├── integration/            # Live Gemini, Spotify, Firestore, smoke tests
+│   └── evals/                  # AI quality evals on live models (make eval, never in CI)
+│       ├── datasets/           # YAML cases: gate messages, conversations, existence requests
+│       ├── harness/            # Model override, retries, deterministic checks, summary
+│       └── suites/             # Gate, conversation and Spotify-existence evals
 ├── terraform/
 │   ├── main.tf                 # Firestore (+ TTL), IAM, secrets, Artifact Registry, Cloud Run, WIF
 │   ├── variables.tf
 │   └── outputs.tf
 ├── docs/
 │   ├── deployment-00-overview.md … deployment-07-troubleshooting.md  # Deployment runbook, one file per phase
+│   ├── evals.md                # AI evals: method, metrics, rate limits, Spotify Terms
 │   └── plan.md                 # Implementation plan — not committed
 └── .github/workflows/deploy.yml  # Test on PRs, test + deploy on push to main
 ```
@@ -499,8 +505,8 @@ ruff format .
 # Run every pre-commit hook on the whole repository
 pre-commit run --all-files
 
-# Run all tests
-pytest tests/
+# Run all tests (the AI evals are separate, see below)
+pytest tests/ --ignore=tests/evals
 
 # Run unit tests only (no credentials required)
 pytest tests/unit/
@@ -513,6 +519,9 @@ make test-smoke
 
 # Run the Spotify de-risking spike (dev only, requires an allowlisted account)
 python -m scripts.spotify_spike
+
+# Run the AI evals on the live models (slow, spends free-tier quota; never in CI)
+make eval
 ```
 
 | Layer | Scope | Notes |
@@ -538,6 +547,18 @@ python -m scripts.spotify_spike
 | `src/guards/intent_gate.py` | Integration | Live Gemma: clear off-topic blocked; music requests, small talk and short follow-ups in context pass (`test_intent_gate_integration.py`). |
 | `src/session/session_store.py` | Integration | Live Firestore session lifecycle (`test_firestore_sessions.py`). |
 | Cloud Run | Smoke | HTTP 200, HTML response and Streamlit health check (`test_smoke.py`). |
+
+### AI evals
+
+The tests above check that the software behaves as specified; the **evals** measure how well the models do their job. They run the production code paths (`intent_gate.classify`, `chain.run_turn` with its guard, the Spotify resolver) on the live models, with only the model id swapped, and print a per-model summary, so every model in `config/evals.toml` is compared with the production one (Gemma 4 31B by default).
+
+| Suite | What it measures | Metrics |
+| :--- | :--- | :--- |
+| Intent gate (`test_gate_eval.py`, 54 labeled messages) | IN/OUT classification under the gate's lenient policy | IN passed (must stay ~100%), OUT blocked, calls within the app's 3 s budget |
+| Conversation (`test_conversation_eval.py`, 18 scripted conversations) | Deterministic checks on the structured output: intent, criteria extraction, size and clamping, over-generation, title, reply language, artist and era constraints, revisions that keep the rest of the draft, prompt-injection and prompt-leak resistance | Pass rate per check |
+| Existence on Spotify (`test_existence_eval.py`, 8 requests from mainstream to niche) | Invented or unfindable tracks | Share of suggestions found, playlists filled to their target size |
+
+The existence check uses the app's own catalog search and keeps only two counts: no Spotify data reaches an LLM, is stored or is cached (Spotify Developer Terms). Calls are paced per model below the free-tier RPM/TPM limits (`[pacing]` in `config/evals.toml`); transient `429`/`5xx` errors are retried with backoff and reported as *unavailable*, apart from wrong answers. Method, rate limits and limitations: [`docs/evals.md`](docs/evals.md).
 
 ---
 
