@@ -10,6 +10,7 @@ docs/
 scripts/
 tests/
 terraform/
+config/evals.toml
 **/__pycache__/
 *.py[cod]
 .pytest_cache/

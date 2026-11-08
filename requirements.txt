@@ -27,3 +27,4 @@ ruff>=0.9.0           # Linter and formatter — enforces all code quality stand
 pytest>=8.0.0
 pytest-mock>=3.14.0
 respx>=0.21.0         # Mocks httpx at the transport layer for offline Spotify tests
+pyyaml>=6.0.0         # AI eval datasets (tests/evals/datasets)

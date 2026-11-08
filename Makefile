@@ -1,4 +1,4 @@
-.PHONY: run test-unit test-integration test-smoke test docker-build docker-run docker-push tf-apply
+.PHONY: run test-unit test-integration test-smoke test eval docker-build docker-run docker-push tf-apply
 
 # ── Variables (override on the command line; defaults are read from config/base.toml) ─
 PYTHON        := .venv/bin/python
@@ -30,9 +30,16 @@ test-integration:
 test-smoke:
 	$(PYTHON) -m pytest tests/integration/test_smoke.py -v
 
-## Run the full test suite (unit + integration)
+## Run the full test suite (unit + integration); the AI evals are separate (make eval)
 test:
-	$(PYTHON) -m pytest tests/ -v
+	$(PYTHON) -m pytest tests/ -v --ignore=tests/evals
+
+## Run the AI evals against the live models and Spotify (slow, spends free-tier quota).
+## Models compared and retry policy: config/evals.toml. Pick one suite with
+## EVAL=tests/evals/suites/test_gate_eval.py (or _conversation_ / _existence_).
+EVAL ?= tests/evals
+eval:
+	$(PYTHON) -m pytest $(EVAL) -v -rs
 
 ## Build the Docker image locally
 docker-build:
