@@ -34,7 +34,7 @@ test-smoke:
 test:
 	$(PYTHON) -m pytest tests/ -v --ignore=tests/evals
 
-## Run the AI evals against the live models and Spotify (slow, spends free-tier quota).
+## Run the AI evals against the live models and Spotify (slow, spends free-tier quota and Claude credit).
 ## Models compared and retry policy: config/evals.toml. Pick one suite with
 ## EVAL=tests/evals/suites/test_gate_eval.py (or _conversation_ / _existence_).
 EVAL ?= tests/evals

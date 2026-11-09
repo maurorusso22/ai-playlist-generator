@@ -4,21 +4,22 @@
 
 [conversation]
 compare_models = [  # Extra engines for the conversation and existence evals: provider and model id
-  { provider = "gemini", model = "gemma-4-31b-it" },
+  { provider = "claude", model = "claude-haiku-5-5" },
 ]
 min_resolution_rate = 0.8  # Share of a playlist's suggestions that must be found on Spotify
 
 [intent_gate]
-compare_models = ["gemma-4-31b-it"]  # Extra models for the intent-gate eval
+compare_models = []  # Extra Google AI Studio models for the intent-gate eval (production: Gemma)
 timeout_s = 120  # Eval client timeout: the classifier is judged apart from the 3 s app budget
 
 [retry]
 attempts = 4  # Calls per case before a transient 429/5xx marks the case unavailable
 base_delay_s = 10  # First backoff delay in seconds, doubled at every further attempt
 
-# Minimum seconds between two calls to the same model, sized on its free-tier RPM and TPM limits
-# so 429 retries stay a safety net; every evaluated model needs an entry (see docs/evals.md).
+# Minimum seconds between two calls to the same model, sized on its RPM and TPM limits (free tier
+# on Google AI Studio, usage tier on the Claude API) so 429 retries stay a safety net; every
+# evaluated model needs an entry (see docs/evals.md).
 [pacing]
 "gemma-4-26b-a4b-it" = 2.5  # 30 RPM → 2 s per call; 2.5 s caps it at 24 RPM (~8K of 16K TPM)
 "gemini-3.5-flash-lite" = 5.0  # 15 RPM → 4 s per call; 5 s caps it at 12 RPM
-"gemma-4-31b-it" = 12.0  # 16K TPM / ~2.5K tokens per conversation call ≈ 6 a minute; 12 s gives 5
+"claude-haiku-5-5" = 1.0  # Start tier: 4,000 RPM; 1 s (60 RPM) also fits a new org's lower limits
