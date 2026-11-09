@@ -1,14 +1,17 @@
-"""Shared unit-test fixtures: isolated, offline secrets and configuration for every test."""
+"""Shared unit-test fixtures: offline secrets and configuration, and a mocked Claude client."""
 
 import tomllib
 from collections.abc import Iterator
+from unittest.mock import MagicMock
 
 import pytest
 from cryptography.fernet import Fernet
+from pytest_mock import MockerFixture
 
 from src.config.files import BASE_FILE, CONFIG_DIR, Sections
 from src.config.secrets import get_secrets
 from src.config.settings import get_settings
+from src.llm import claude
 
 TEST_IDENTITY = {  # Values for the base.toml keys the repository leaves blank
     "gcp": {"project_id": "test-project"},
@@ -64,3 +67,21 @@ def config(monkeypatch: pytest.MonkeyPatch) -> Iterator[Sections]:
     get_settings.cache_clear()
     yield sections
     get_settings.cache_clear()
+
+
+@pytest.fixture
+def claude_client(mocker: MockerFixture, config: Sections) -> Iterator[MagicMock]:
+    """Select the Claude engine and patch the Anthropic client class.
+
+    Args:
+        mocker: pytest-mock fixture.
+        config: The sections served to `get_settings`.
+
+    Returns:
+        The mocked client class, yielded; the cached client is cleared around each test.
+    """
+    config["llm"]["provider"] = "claude"
+    get_settings.cache_clear()
+    claude._client.cache_clear()
+    yield mocker.patch("src.llm.claude.anthropic.Anthropic")
+    claude._client.cache_clear()
