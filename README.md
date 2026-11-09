@@ -75,6 +75,7 @@ The following are hard boundaries that govern all design and implementation deci
 
 * **GCP Free Tier only:** No paid GCP services or SKUs may be used. Infrastructure must remain within the Always Free limits of Cloud Run, Firestore, Secret Manager and Artifact Registry, in region `us-central1`. Paid alternatives such as Memorystore (Redis) are therefore excluded.
 * **Google AI Studio Free Tier:** LLM calls must stay within the free-tier rate limits; no billing account is attached. Quotas are per model, so the intent gate (Gemma 4 26B, a much larger daily quota) protects Gemini 3.5 Flash-Lite's few hundred requests per day. Per-model RPM/RPD limits are shown per project in the AI Studio console (they are not fully published), preview models have tighter limits, and daily quotas reset at midnight Pacific time. Free-tier prompts may be used by Google to improve its products.
+* **Claude API (optional, paid):** setting `llm.provider = "claude"` moves the conversation engine to Claude Haiku 5.5, the only component billed per token (prepaid credit, no free tier). A spend limit in the Claude Console caps the monthly cost; the intent gate stays on Gemma either way.
 * **Spotify Development Mode:** Since the February 2026 platform changes, the app owner needs a **Spotify Premium** account, each Development Mode app allows **at most 5 allowlisted users** (added manually in the Developer Dashboard), and **Extended Quota Mode is only available to organizations with ≥ 250k monthly active users**, so it is not reachable for this project. Spotify login is therefore **invite-only**; everyone else uses guest mode.
 * **Spotify quotas and catalog access:** Rate-limit quotas are counted per developer account and their numeric values are not published; `429` responses may carry `reason: QUOTA_EXCEEDED`. New Development Mode apps receive at most 10 results per search request, and the recommendations, related-artists and audio-features endpoints are unavailable to new apps (deprecated in November 2024). Track selection is therefore the LLM's job, not Spotify's.
 * **Spotify Web API migration:** The February 2026 migration replaced `POST /users/{id}/playlists` with `POST /me/playlists` and `/playlists/{id}/tracks` with `/playlists/{id}/items`; the app targets only the post-migration endpoints.
@@ -143,7 +144,9 @@ sequenceDiagram
 ### 1. Conversation Engine
 Implemented in `src/guards/intent_gate.py`, `src/guards/gate_prompt.py`, `src/conversation/chain.py`, `src/conversation/prompt.py`, `src/models/conversation/` and `src/conversation/criteria.py`:
 * **Intent gate (fail-open):** before Gemini, **Gemma 4 26B** (`gemma-4-26b-a4b-it`, a separate and larger free-tier quota) classifies the new message, with the assistant's last text reply as context, and answers one word. Only an unambiguous `OUT` blocks it: the user gets a fixed off-topic reply, saved like a normal turn, and Gemini is not called. Any other answer, an error, a `429` or the 3-second timeout lets the message through, and messages over 2,000 characters skip the gate. The gate runs with thinking set to `minimal`, temperature 0, a single attempt and a few output tokens. It is deliberately lazy: a missed off-topic message costs one Gemini request (and Gemini still declines it), while a blocked legitimate one would break the product.
-* **One Gemini call per user turn** through LangChain's `ChatGoogleGenerativeAI.with_structured_output`, using **Gemini 3.5 Flash-Lite** via a [Google AI Studio](https://aistudio.google.com/apikey) API key. The response is parsed into an `AssistantTurn` Pydantic model instead of free text:
+* **Selectable engine:** `llm.provider` in `config/base.toml` picks the conversation engine, `gemini` (default) or `claude`. Both receive the same prompt, return the same `AssistantTurn` schema and go through the same guard and data boundary; only the call differs (`src/llm/gemini.py`, `src/llm/claude.py`).
+* **Claude engine:** one Messages API call per turn through the official Anthropic SDK, using **Claude Haiku 5.5** (`claude-haiku-5-5`). `output_config.format` constrains the reply to the `AssistantTurn` JSON schema, thinking stays adaptive and `claude.effort` (`low` by default) bounds its depth and token spend, and `claude.max_tokens` caps the cost of one reply. A refusal or a reply cut at the cap counts as unparsable and is retried once.
+* **One Gemini call per user turn** (default engine) through LangChain's `ChatGoogleGenerativeAI.with_structured_output`, using **Gemini 3.5 Flash-Lite** via a [Google AI Studio](https://aistudio.google.com/apikey) API key. The response is parsed into an `AssistantTurn` Pydantic model instead of free text:
 
   ```text
   AssistantTurn
@@ -271,7 +274,8 @@ The application is containerized with Docker (`python:3.12.13-slim-bookworm`, bu
 | :--- | :--- | :--- |
 | **Language** | Python 3.12.13 | Primary programming language for backend, AI and UI logic. |
 | **AI Framework** | LangChain (`langchain-core`, `langchain-google-genai`) | Prompting, chat history and structured output. |
-| **LLM** | Gemini 3.5 Flash-Lite (Google AI Studio, `gemini-3.5-flash-lite`) | Conversation understanding and playlist drafting. |
+| **LLM** | Gemini 3.5 Flash-Lite (Google AI Studio, `gemini-3.5-flash-lite`) | Conversation understanding and playlist drafting (default engine). |
+| **LLM (alternative)** | Claude Haiku 5.5 (Claude API via the `anthropic` SDK, `claude-haiku-5-5`) | Same role when `llm.provider = "claude"`; billed per token. |
 | **Intent gate** | Gemma 4 26B A4B (Google AI Studio, `gemma-4-26b-a4b-it`) | Fail-open filter that stops clearly off-topic messages before Gemini. |
 | **Music Catalog** | Spotify Web API (custom `httpx` client) | Track search, user profile and playlist creation. |
 | **Session Store** | Firestore Native Mode + TTL policy | Short-lived (1-hour) conversation storage. |
@@ -300,7 +304,7 @@ ai-playlist-generator/
 ├── requirements.txt            # Python dependencies
 ├── ruff.toml                   # Linter/formatter config (same rules as ai-portfolio-assistant)
 ├── .pre-commit-config.yaml     # Git hooks: hygiene checks, Ruff, mypy, gitleaks, Conventional Commits
-├── .env.example                # Secrets template: the three secret names, no values
+├── .env.example                # Secrets template: the secret names, no values
 ├── LICENSE                     # MIT License (the Spotify marks in public/ are excluded)
 ├── config/
 │   ├── base.toml               # Non-secret settings (local-development values)
@@ -320,6 +324,8 @@ ai-playlist-generator/
 ├── src/
 │   ├── config/
 │   │   ├── settings.py         # Pydantic validation of the TOML settings
+│   │   ├── llm_settings.py     # [llm], [gemini], [claude] and [intent_gate] sections
+│   │   ├── sections.py         # Base class of the validated sections
 │   │   ├── files.py            # base.toml + APP_ENV overlay loading
 │   │   ├── secrets.py          # Secrets from the environment (.env / Secret Manager)
 │   │   ├── constants.py        # Fixed app-wide constants
@@ -330,10 +336,13 @@ ai-playlist-generator/
 │   │   └── session/            # Firestore session: SessionState, ChatMessage, PendingAction, CreatedPlaylist
 │   ├── conversation/           # Conversation engine
 │   │   ├── prompt.py           # System prompt and clarification fallback
-│   │   ├── chain.py            # LLM call with structured output and history
+│   │   ├── chain.py            # Prompt, history and guard around the selected engine
 │   │   ├── criteria.py         # Minimum-criteria guard (≥ 1 of 6 references)
 │   │   └── title.py            # Playlist title clean-up (length cap, blank fallback)
-│   ├── guards/                 # Quota protection in front of Gemini
+│   ├── llm/                    # Conversation engines, selected by llm.provider
+│   │   ├── gemini.py           # Gemini via langchain-google-genai structured output
+│   │   └── claude.py           # Claude via the Anthropic SDK and output_config.format
+│   ├── guards/                 # Quota protection in front of the conversation engine
 │   │   ├── gate_prompt.py      # Lenient IN/OUT system prompt of the intent gate
 │   │   ├── intent_gate.py      # Fail-open Gemma filter for off-topic messages
 │   │   └── rate_limiter.py     # Per-IP sliding-window rate limiting (in memory)
@@ -394,6 +403,7 @@ ai-playlist-generator/
 * Docker (for containerized local testing)
 * A Google Cloud Project with Firestore enabled in **Native Mode** (provisioned by Terraform, see [Deployment Step 2](#step-2--apply-core-infrastructure-firestore-ttl-rules-iam)) and Application Default Credentials (`gcloud auth application-default login`)
 * A Google AI Studio API Key ([aistudio.google.com/apikey](https://aistudio.google.com/apikey))
+* Optional, for the Claude engine: a Claude API key with prepaid credit ([platform.claude.com/settings/keys](https://platform.claude.com/settings/keys)), ideally with a spend limit set on the Console's Billing page
 * A **Spotify developer app** created in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard):
   * the app owner account must have **Spotify Premium** (Development Mode requirement);
   * select the **Web API** and register the redirect URI `http://127.0.0.1:8501/` exactly (add the production URL later, see [Deployment Step 7](#step-7--register-the-spotify-redirect-uri));
@@ -407,9 +417,10 @@ Settings and secrets live in separate files and never mix.
 
 | Variable | Description |
 | :--- | :--- |
-| `GOOGLE_API_KEY` | Google AI Studio API key for Gemini. |
+| `GOOGLE_API_KEY` | Google AI Studio API key for Gemini and the Gemma intent gate. |
 | `SPOTIFY_CLIENT_SECRET` | Spotify app Client Secret. |
 | `SESSION_ENCRYPTION_KEY` | Fernet key encrypting Spotify tokens at rest. |
+| `ANTHROPIC_API_KEY` | Claude API key; required only when `llm.provider = "claude"`. Local `.env` only for now: Terraform does not inject it on Cloud Run, so production stays on Gemini until it is added to Secret Manager and to the service. |
 
 **Settings** go in `config/base.toml` (committed). On Cloud Run, `APP_ENV=production` also loads `config/production.toml`, which overrides single keys (the redirect URI). Unknown keys, wrong types and blank values raise a `ConfigError` naming the `section.key` the first time the settings are read.
 
@@ -418,7 +429,11 @@ Settings and secrets live in separate files and never mix.
 | `gcp.project_id` | — (fill in) | GCP project hosting Firestore. |
 | `sessions.collection` | `sessions` | Firestore collection for chat sessions. |
 | `sessions.ttl_minutes` | `60` | Session lifetime after the last message. |
-| `llm.model` | `gemini-3.5-flash-lite` | Gemini model id. |
+| `llm.provider` | `gemini` | Conversation engine: `gemini` or `claude`. |
+| `gemini.model` | `gemini-3.5-flash-lite` | Gemini model id, used when the provider is `gemini`. |
+| `claude.model` | `claude-haiku-5-5` | Claude model id, used when the provider is `claude`. |
+| `claude.effort` | `low` | Claude reasoning effort (`low` → `max`): higher effort thinks longer and spends more tokens. |
+| `claude.max_tokens` | `8192` | Output cap per Claude reply, thinking included. |
 | `intent_gate.model` | `gemma-4-26b-a4b-it` | Gemma model id of the intent gate. |
 | `spotify.client_id` | — (fill in) | Spotify app Client ID (public by design). |
 | `spotify.redirect_uri` | `http://127.0.0.1:8501/` | OAuth redirect URI; production overrides it with the canonical `https://` URL. |
@@ -451,7 +466,7 @@ Settings and secrets live in separate files and never mix.
 4. **Configure secrets and settings:**
    ```bash
    cp .env.example .env
-   # Edit .env: the three secrets only
+   # Edit .env: secrets only (ANTHROPIC_API_KEY only for the Claude engine)
    # Edit config/base.toml: set gcp.project_id and spotify.client_id
    ```
 
@@ -484,7 +499,7 @@ Settings and secrets live in separate files and never mix.
 
 ## 🧪 Testing
 
-The project uses `pytest` for unit and integration tests, and `ruff` for linting and formatting. Unit tests run fully offline: Gemini and Firestore are mocked with `pytest-mock`, and the Spotify Web API is mocked at the HTTP layer with `respx`.
+The project uses `pytest` for unit and integration tests, and `ruff` for linting and formatting. Unit tests run fully offline: Gemini, Claude and Firestore are mocked with `pytest-mock`, and the Spotify Web API is mocked at the HTTP layer with `respx`.
 
 ```bash
 # Install dev dependencies (includes pytest, pytest-mock, respx and ruff)
@@ -520,7 +535,7 @@ make test-smoke
 # Run the Spotify de-risking spike (dev only, requires an allowlisted account)
 python -m scripts.spotify_spike
 
-# Run the AI evals on the live models (slow, spends free-tier quota; never in CI)
+# Run the AI evals on the live models (slow, spends free-tier quota and Claude credit; never in CI)
 make eval
 ```
 
@@ -533,6 +548,7 @@ make eval
 | `src/ui/playlist_card.py` | Unit | `html.escape` on every dynamic field, Spotify URL allowlist, track count, artwork placeholder, unaltered artwork (`test_playlist_card.py`). |
 | `src/ui/saved_card.py` | Unit | Snapshot of the added tracks only, 2x2 mosaic or single cover, duration format, escaping and Spotify URL allowlist (`test_saved_card.py`). |
 | `src/conversation/chain.py` | Unit | Structured-output parsing, history containing only the LLM's own draft, clarification override, off-topic and Gemini error mapping, with a mocked LLM (`test_chain.py`). |
+| `src/llm/claude.py` | Unit | Claude request shape (model, effort, token cap, output schema, roles without notices), validation retry, refusal and `max_tokens` stops, SDK errors and a missing `ANTHROPIC_API_KEY`, with a mocked Anthropic client (`test_claude_engine.py`). |
 | `src/spotify/client.py` | Unit | Search, profile, playlist and items endpoints, `Retry-After` and exponential backoff, `QUOTA_EXCEEDED`, and the mapping of every documented error status with Spotify's `error.message`, via `respx` (`test_spotify_client.py`). |
 | `src/spotify/auth.py` | Unit | App-token reuse until expiry, `state` verification, code exchange, refresh, re-authorization on `invalid_grant` and the 403 allowlist case (`test_spotify_auth.py`). |
 | `src/spotify/resolver.py` | Unit | Similarity threshold, not-found suggestions dropped, over-generation trimming, in-request deduplication and no cross-request cache (`test_resolver.py`). |
@@ -550,7 +566,7 @@ make eval
 
 ### AI evals
 
-The tests above check that the software behaves as specified; the **evals** measure how well the models do their job. They run the production code paths (`intent_gate.classify`, `chain.run_turn` with its guard, the Spotify resolver) on the live models, with only the model id swapped, and print a per-model summary, so every model in `config/evals.toml` is compared with the production one (Gemma 4 31B by default).
+The tests above check that the software behaves as specified; the **evals** measure how well the models do their job. They run the production code paths (`intent_gate.classify`, `chain.run_turn` with its guard, the Spotify resolver) on the live models, with only the model id (and, for the conversation engine, its provider) swapped, and print a per-model summary, so every model in `config/evals.toml` is compared with the production one (Claude Haiku 5.5 against the Gemini engine by default; the gate has no comparison model).
 
 | Suite | What it measures | Metrics |
 | :--- | :--- | :--- |
@@ -558,7 +574,7 @@ The tests above check that the software behaves as specified; the **evals** meas
 | Conversation (`test_conversation_eval.py`, 18 scripted conversations) | Deterministic checks on the structured output: intent, criteria extraction, size and clamping, over-generation, title, reply language, artist and era constraints, revisions that keep the rest of the draft, prompt-injection and prompt-leak resistance | Pass rate per check |
 | Existence on Spotify (`test_existence_eval.py`, 8 requests from mainstream to niche) | Invented or unfindable tracks | Share of suggestions found, playlists filled to their target size |
 
-The existence check uses the app's own catalog search and keeps only two counts: no Spotify data reaches an LLM, is stored or is cached (Spotify Developer Terms). Calls are paced per model below the free-tier RPM/TPM limits (`[pacing]` in `config/evals.toml`); transient `429`/`5xx` errors are retried with backoff and reported as *unavailable*, apart from wrong answers. Method, rate limits and limitations: [`docs/evals.md`](docs/evals.md).
+The existence check uses the app's own catalog search and keeps only two counts: no Spotify data reaches an LLM, is stored or is cached (Spotify Developer Terms). Calls are paced per model below its RPM/TPM limits (`[pacing]` in `config/evals.toml`); transient `429`/`5xx` errors are retried with backoff and reported as *unavailable*, apart from wrong answers. Method, rate limits and limitations: [`docs/evals.md`](docs/evals.md).
 
 ---
 
@@ -856,7 +872,7 @@ redirect_uri = "https://yourdomain.com/"
 ### 5. Rate Limiting & Abuse Prevention
 * **IP-based Rate Limiting:** A sliding window kept in memory allows at most `rate_limit.max_requests` chat messages per client IP in any `rate_limit.window` seconds (12 per 60 seconds in `config/base.toml`). Each IP keeps the timestamps of its counted messages in a `cachetools` `TTLCache` that evicts idle IPs; blocked messages are not counted, never reach Gemini and are not saved, and the user sees "Too many messages. Please wait a minute and try again." In-memory state is enough because Cloud Run runs at most one instance; it resets on cold starts and deploys. Behind Cloud Run, the client IP is extracted from the `X-Forwarded-For` header.
 * **Instance Cap:** `max-instances = 1` on Cloud Run prevents denial-of-wallet scenarios from unexpected traffic spikes.
-* **Upstream quotas:** Gemini `429` errors and Spotify `429`/`QUOTA_EXCEEDED` responses are handled with friendly messages and bounded retries rather than retry storms.
+* **Upstream quotas:** Gemini `429` errors, Claude `429` rate limits and the monthly spend cap (told apart by the SDK's `EnforcedSpendLimitReachedError`), and Spotify `429`/`QUOTA_EXCEEDED` responses are handled with friendly messages and bounded retries rather than retry storms.
 
 ### 6. Privacy
 * **Ephemeral conversations:** sessions expire 60 minutes after the last message, enforced on every read; expired sessions cannot be resumed and are deleted.

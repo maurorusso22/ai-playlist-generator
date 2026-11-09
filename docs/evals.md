@@ -15,31 +15,32 @@ make eval EVAL=tests/evals/suites/test_gate_eval.py
 .venv/bin/python -m pytest tests/evals -v -k "resize-draft and flash"
 ```
 
-Requirements: a complete `.env` and `config/base.toml`, as for the integration tests. The evals never run in CI or in `make test`: they spend free-tier quota and a full run takes about an hour, almost all of it spent waiting for the slower comparison model.
+Requirements: a complete `.env` and `config/base.toml`, as for the integration tests; the Claude cases also need `ANTHROPIC_API_KEY` in `.env` and are skipped without it. The evals never run in CI or in `make test`: they spend free-tier quota on Google AI Studio and real credit on the Claude API.
 
 ## Design
 
-- **Production code, one swap.** `harness/live.py` serves the real configuration through the app's own `load_config` → `get_settings` path with only the model id replaced, so the system prompt, the structured-output schema, the deterministic guard and the resolver are exactly the ones users hit.
-- **Model matrix.** The production models in `config/base.toml` are always evaluated; `config/evals.toml` lists the comparison models (Gemma 4 31B for both the conversation engine and the gate).
-- **Failures vs unavailability.** Free-tier models return `429`, `500` and `503` under load. Those are retried with exponential backoff and jitter (`[retry]` in `config/evals.toml`); a case that still fails is reported as *unavailable* and excluded from the pass rate, so infrastructure noise is never counted as a wrong answer. Unparsable structured output, on the other hand, is a model failure.
-- **Pacing under the free-tier limits.** See [Rate limits](#rate-limits) below.
+- **Production code, one swap.** `harness/live.py` serves the real configuration through the app's own `load_config` → `get_settings` path with only the model id replaced (and, for the conversation engine, `llm.provider` with it), so the system prompt, the structured-output schema, the deterministic guard and the resolver are exactly the ones users hit.
+- **Model matrix.** The production models in `config/base.toml` are always evaluated; `config/evals.toml` lists the comparison models: Claude Haiku 5.5 for the conversation engine, each entry with its provider; none for the gate, which stays on Gemma.
+- **Failures vs unavailability.** Free-tier models return `429`, `500` and `503` under load, Claude `429` and `529` (overloaded). Those are retried with exponential backoff and jitter (`[retry]` in `config/evals.toml`); a case that still fails is reported as *unavailable* and excluded from the pass rate, so infrastructure noise is never counted as a wrong answer. Claude's monthly spend cap is a `429` too but is not retried: it lasts until the next month. Unparsable structured output, on the other hand, is a model failure.
+- **Pacing under the rate limits.** See [Rate limits](#rate-limits) below.
 - **Datasets in YAML** (`tests/evals/datasets/`), validated by Pydantic schemas that reject unknown keys, so a misspelled expectation fails loudly instead of being silently skipped.
 - **Report.** Each case is a pytest test (failures name the checks that failed); the end-of-session summary prints, per suite and per model, the pass rate, the latency per call (p50/p95), the suite metrics and the pass rate of every check.
 
 ## Rate limits
 
-The evals call the models one at a time, so without a floor the pace is set by the model's own latency: the gate eval on Gemma 4 26B (about 1 s per answer) reached **34 requests per minute against a limit of 30**. The 429 retries absorbed it, but a run that only works thanks to retries also burns quota on rejected calls and can starve the app if it shares the project. `[pacing]` in `config/evals.toml` therefore sets a minimum interval between the starts of two calls to the same model, sized on its free-tier limits:
+The evals call the models one at a time, so without a floor the pace is set by the model's own latency: the gate eval on Gemma 4 26B (about 1 s per answer) reached **34 requests per minute against a limit of 30**. The 429 retries absorbed it, but a run that only works thanks to retries also burns quota on rejected calls and can starve the app if it shares the project. `[pacing]` in `config/evals.toml` therefore sets a minimum interval between the starts of two calls to the same model, sized on its limits (free tier on Google AI Studio, usage tier on the Claude API):
 
 | Model | Limits | Tokens per call (input) | Interval | Resulting pace |
 | :--- | :--- | :--- | :--- | :--- |
 | Gemma 4 26B (gate) | 30 RPM, 16K TPM | ~350 | 2.5 s | ≤ 24 RPM, ≤ ~8K TPM |
 | Gemini 3.5 Flash-Lite | 15 RPM, 250K TPM | ~1.4K, up to ~2.5K in a revision | 5 s | ≤ 12 RPM |
-| Gemma 4 31B | 30 RPM, 16K TPM | as above, for both roles | 12 s | ≤ 5 RPM, ≤ ~12.5K TPM |
+| Claude Haiku 5.5 | Start tier: 4,000 RPM, 2M ITPM, 400K OTPM | similar (own tokenizer) | 1 s | ≤ 60 RPM |
 
-- **Why a margin below the limit.** One paced call can hide more than one request: `run_turn` retries an unparsable reply once and the SDK retries once on errors, and Google counts the minute in its own window.
-- **Why TPM matters only for Gemma 4 31B.** TPM counts input tokens: a conversation call sends the system prompt (~550 tokens), the response schema (~850) and, in a revision, the history and the current draft. 16K TPM allows only about six such calls a minute, so the request limit is not the binding one.
+- **Why a margin below the limit.** One paced call can hide more than one request: `run_turn` retries an unparsable reply once and the SDK retries once on errors, and Google counts the minute in its own window. Claude's 1 s interval sits far below the Start tier because new organizations may begin on a lower Evaluation tier.
+- **Cost of the Claude cases.** Claude is billed per token (Haiku 5.5: $0.10 per million input tokens and $0.50 per million output tokens for prompts up to 100K tokens), thinking included. A full run makes about 32 Claude calls of a few thousand tokens each, an estimate of a few cents; the Console's Usage page shows the real figure.
 - **Daily limits.** A full run makes about 32 conversation-engine calls per model (24 conversation turns and 8 existence requests) and 54 gate calls per gate model: about 6% of Flash-Lite's 500 requests a day, which the deployed app shares when the key belongs to the same project. Run the evals deliberately, not in a loop.
 - **One process per model.** Pacing is kept in memory per process: two processes may run in parallel on different models (each has its own quota), never on the same one.
+- **Running one engine only.** Select cases by model id, e.g. `-k "haiku"` for Claude or `-k "flash"` for Gemini.
 
 ## Suites
 
@@ -50,7 +51,7 @@ The evals call the models one at a time, so without a floor the pace is set by t
 | Metric | Why it matters |
 | :--- | :--- |
 | IN passed | A blocked music request breaks the product: must stay ~100%. |
-| OUT blocked | A missed off-topic message only costs one Gemini call (and Gemini still declines it). |
+| OUT blocked | A missed off-topic message only costs one conversation-engine call (and the engine still declines it). |
 | Calls within the app's 3 s budget | The eval uses a long timeout to judge the classifier; in the app a slower call fails open, which silently turns the gate off. |
 | Answers other than IN/OUT | Format drift: the app treats them as IN. |
 
