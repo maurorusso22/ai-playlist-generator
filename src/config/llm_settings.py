@@ -28,3 +28,5 @@ class ClaudeConfig(Section):
     model: Text
     effort: Effort
     max_tokens: PositiveInt
+    web_search: bool
+    max_searches: PositiveInt
