@@ -28,7 +28,9 @@ def test_committed_base_values() -> None:
     settings = get_settings()
     assert settings.sessions.collection == "sessions"
     assert settings.sessions.ttl_minutes == 60
-    assert settings.llm.model == "gemini-3.5-flash-lite"
+    assert settings.llm.provider == "gemini"
+    assert settings.gemini.model == "gemini-3.5-flash-lite"
+    assert (settings.claude.model, settings.claude.effort) == ("claude-haiku-5-5", "low")
     assert settings.intent_gate.model == "gemma-4-26b-a4b-it"
     assert settings.spotify.market == "IT"
     assert settings.spotify.redirect_uri == "http://127.0.0.1:8501/"
@@ -56,6 +58,9 @@ def test_errors_are_reported_together_with_dotted_keys(config: Sections) -> None
         ("sessions.ttl_minutes", 0),
         ("rate_limit.window", -1),
         ("spotify.market", "it"),
+        ("llm.provider", "openai"),
+        ("claude.effort", "extreme"),
+        ("claude.max_tokens", 0),
     ],
 )
 def test_invalid_values_raise(config: Sections, key: str, value: Any) -> None:

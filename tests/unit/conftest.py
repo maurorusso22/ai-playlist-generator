@@ -34,6 +34,7 @@ def fake_secrets(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, str]]:
         "GOOGLE_API_KEY": "test-google-api-key",
         "SPOTIFY_CLIENT_SECRET": "test-client-secret",
         "SESSION_ENCRYPTION_KEY": Fernet.generate_key().decode(),
+        "ANTHROPIC_API_KEY": "test-anthropic-api-key",
     }
     for name, value in values.items():
         monkeypatch.setenv(name, value)

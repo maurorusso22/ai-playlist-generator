@@ -27,7 +27,7 @@ SKELETON_ROWS = 5  # Placeholder rows shown while tracks are resolved
 def _reply(text: str, state: SessionState) -> AssistantTurn | None:
     """Gate the message, then call the LLM behind the equalizer; errors are shown, not raised.
 
-    A message the intent gate blocks gets a fixed off-topic turn and never reaches Gemini.
+    A message the intent gate blocks gets a fixed off-topic turn and never reaches the LLM.
 
     Args:
         text: The new user message.

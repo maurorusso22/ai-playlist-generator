@@ -1,34 +1,29 @@
-"""One structured Gemini call per user turn, followed by the deterministic guard.
+"""One structured LLM call per user turn, followed by the deterministic guard.
 
-The prompt holds only the system rules, the LLM's own previous draft and the user/assistant
-text messages: `notice` messages and Spotify-resolved data never reach the LLM.
+The engine is chosen by `llm.provider` (Gemini or Claude). The prompt holds only the system
+rules, the LLM's own previous draft and the user/assistant text messages: `notice` messages
+and Spotify-resolved data never reach the LLM.
 """
 
 import logging
 import time
 from collections.abc import Sequence
-from functools import lru_cache
 
-from google.genai.errors import ClientError
 from langchain_core.exceptions import OutputParserException
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
-from langchain_core.runnables import Runnable
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_google_genai.chat_models import ChatGoogleGenerativeAIError
 
 from src.config.constants import OVERGENERATION_RATIO, PLAYLIST_HARD_MAX_SIZE, PLAYLIST_MIN_SIZE
-from src.config.secrets import get_secrets
 from src.config.settings import get_settings
 from src.conversation.criteria import apply_guard, candidate_count, clamp_size
 from src.conversation.prompt import SYSTEM_PROMPT, format_draft_context
 from src.conversation.title import MAX_TITLE_LENGTH
+from src.llm import claude, gemini
 from src.models.conversation.assistant_turn import AssistantTurn
 from src.models.conversation.playlist_draft import PlaylistDraft
 from src.models.session.chat_message import ChatMessage
 
 HISTORY_MAX_MESSAGES = 20  # Last user/assistant messages sent to the LLM (10 exchanges)
 PARSE_ATTEMPTS = 2  # A structured-output parsing failure is retried once
-LLM_MAX_RETRIES = 2  # Total SDK attempts (1 retry): the default 6 delays 429 feedback by ~30 s
 LLM_ROLES = ("user", "assistant")  # Roles sent to the LLM; `notice` may carry Spotify data
 
 _logger = logging.getLogger(__name__)
@@ -36,22 +31,6 @@ _logger = logging.getLogger(__name__)
 
 class AssistantUnavailableError(RuntimeError):
     """Raised when the LLM reply cannot be parsed, even after one retry."""
-
-
-@lru_cache(maxsize=1)
-def _build_llm() -> Runnable[list[BaseMessage], object]:
-    """Build the Gemini model bound to the `AssistantTurn` schema, once and lazily.
-
-    Returns:
-        A runnable whose `invoke` returns a parsed `AssistantTurn`.
-    """
-    llm = ChatGoogleGenerativeAI(
-        model=get_settings().llm.model,
-        google_api_key=get_secrets().google_api_key,
-        max_retries=LLM_MAX_RETRIES,
-    )
-    structured: Runnable[list[BaseMessage], object] = llm.with_structured_output(AssistantTurn)
-    return structured
 
 
 def _system_prompt(draft: PlaylistDraft | None) -> str:
@@ -97,10 +76,7 @@ def _history_messages(history: Sequence[ChatMessage], user_text: str) -> list[Ba
 
 
 def _invoke(messages: list[BaseMessage]) -> AssistantTurn:
-    """Call the LLM once, surfacing Gemini client errors as `google.genai.errors.ClientError`.
-
-    langchain-google-genai wraps `ClientError` in `ChatGoogleGenerativeAIError` subclasses;
-    the original is re-raised so callers can read its `code` and quota `details`.
+    """Call the engine selected by `llm.provider` once.
 
     Args:
         messages: System, history and new user messages.
@@ -108,15 +84,9 @@ def _invoke(messages: list[BaseMessage]) -> AssistantTurn:
     Returns:
         The parsed reply.
     """
-    try:
-        result = _build_llm().invoke(messages)
-    except ChatGoogleGenerativeAIError as exc:
-        if isinstance(exc.__cause__, ClientError):
-            raise exc.__cause__ from None
-        raise
-    if not isinstance(result, AssistantTurn):
-        raise OutputParserException(f"Expected AssistantTurn, got {type(result).__name__}")
-    return result
+    if get_settings().llm.provider == "claude":
+        return claude.invoke(messages)
+    return gemini.invoke(messages)
 
 
 def run_turn(
@@ -124,7 +94,8 @@ def run_turn(
 ) -> AssistantTurn:
     """Run one conversation turn: a structured LLM call, then the minimum-criteria guard.
 
-    Gemini `ClientError`/`ServerError` propagate unchanged for the UI to map.
+    Provider errors (Gemini `ClientError`/`ServerError`, Anthropic `APIError`) propagate
+    unchanged for the UI to map.
 
     Args:
         user_text: The new user message.

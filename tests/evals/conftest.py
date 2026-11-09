@@ -1,6 +1,6 @@
 """Shared eval fixtures: live credentials check, fresh model clients and the final summary.
 
-The evals call the real Gemini, Gemma and Spotify APIs, so they never run in CI or in
+The evals call the real Gemini, Claude, Gemma and Spotify APIs, so they never run in CI or in
 `make test`; run them with `make eval` (see README "AI evals").
 """
 

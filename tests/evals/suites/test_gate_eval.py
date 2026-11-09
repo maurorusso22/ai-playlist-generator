@@ -1,6 +1,6 @@
 """Intent-gate eval: IN/OUT classification quality per model, plus latency against the app budget.
 
-A blocked IN message breaks the product, a missed OUT costs one Gemini call: the summary
+A blocked IN message breaks the product, a missed OUT costs one LLM call: the summary
 reports both rates apart, and the share of calls that would fit the app's 3 s timeout.
 """
 

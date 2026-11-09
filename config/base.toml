@@ -10,7 +10,15 @@ collection = "sessions"  # Firestore collection of chat sessions (TTL policy on 
 ttl_minutes = 60  # Session lifetime after the last message (use 2 to test expiry locally)
 
 [llm]
-model = "gemini-3.5-flash-lite"  # Gemini model id of the conversation engine
+provider = "gemini"  # Conversation engine: "gemini" ([gemini] below) or "claude" ([claude] below)
+
+[gemini]
+model = "gemini-3.5-flash-lite"  # Gemini model id (Google AI Studio), used when provider = "gemini"
+
+[claude]
+model = "claude-haiku-5-5"  # Claude model id (Claude API), used when provider = "claude"
+effort = "low"  # Reasoning effort (low → max): lower effort spends fewer tokens per reply
+max_tokens = 8192  # Output cap per reply, thinking included: bounds the cost of one call
 
 [intent_gate]
 model = "gemma-4-26b-a4b-it"  # Gemma model id of the fail-open out-of-scope filter

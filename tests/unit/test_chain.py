@@ -1,4 +1,4 @@
-"""Unit tests for the conversation chain with a mocked Gemini model (offline)."""
+"""Unit tests for the conversation chain with a mocked Gemini engine (offline)."""
 
 from collections.abc import Iterator
 from typing import Literal, cast
@@ -13,6 +13,7 @@ from pytest_mock import MockerFixture
 
 from src.conversation import chain
 from src.conversation.prompt import CLARIFICATION_FALLBACK, format_draft_context
+from src.llm import gemini
 from src.models.conversation.assistant_turn import AssistantTurn
 from src.models.conversation.playlist_criteria import PlaylistCriteria
 from src.models.conversation.playlist_draft import PlaylistDraft
@@ -55,10 +56,10 @@ def invoke(mocker: MockerFixture) -> Iterator[MagicMock]:
     Returns:
         The mocked `invoke`, yielded; the lazily built LLM cache is cleared around each test.
     """
-    chain._build_llm.cache_clear()
-    llm_cls = mocker.patch("src.conversation.chain.ChatGoogleGenerativeAI")
+    gemini._build_llm.cache_clear()
+    llm_cls = mocker.patch("src.llm.gemini.ChatGoogleGenerativeAI")
     yield llm_cls.return_value.with_structured_output.return_value.invoke
-    chain._build_llm.cache_clear()
+    gemini._build_llm.cache_clear()
 
 
 def test_run_turn_sends_size_rules_and_returns_a_turn(invoke: MagicMock) -> None:
@@ -69,7 +70,7 @@ def test_run_turn_sends_size_rules_and_returns_a_turn(invoke: MagicMock) -> None
     assert isinstance(system, SystemMessage)
     assert "or 16 if they" in system.content and "between 1 and 30" in system.content
     assert "20 tracks for 16, 36 for 30" in system.content
-    llm_cls = getattr(chain, "ChatGoogleGenerativeAI")  # Patched by the invoke fixture
+    llm_cls = getattr(gemini, "ChatGoogleGenerativeAI")  # Patched by the invoke fixture
     llm_cls.assert_called_once_with(
         model="gemini-3.5-flash-lite", google_api_key="test-google-api-key", max_retries=2
     )

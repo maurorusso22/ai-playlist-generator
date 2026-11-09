@@ -1,6 +1,7 @@
 # ── AI / LLM ──────────────────────────────────────────────────────────────────
 langchain-core>=1.0.0
 langchain-google-genai>=4.4.2  # google-genai based; handles 3.5 Flash-Lite fixed sampling and no-prefill rules
+anthropic>=2.7.0  # Claude engine: structured outputs, effort, typed spend-cap error
 
 # ── Models ────────────────────────────────────────────────────────────────────
 pydantic>=2.7.0       # v2 models for structured output and session state

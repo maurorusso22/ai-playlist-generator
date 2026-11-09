@@ -3,7 +3,9 @@
 # run through the same cases, so every report compares them side by side.
 
 [conversation]
-compare_models = ["gemma-4-31b-it"]  # Extra models for the conversation and existence evals
+compare_models = [  # Extra engines for the conversation and existence evals: provider and model id
+  { provider = "gemini", model = "gemma-4-31b-it" },
+]
 min_resolution_rate = 0.8  # Share of a playlist's suggestions that must be found on Spotify
 
 [intent_gate]
