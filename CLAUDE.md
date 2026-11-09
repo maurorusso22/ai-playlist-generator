@@ -7,8 +7,8 @@ Conversational playlist builder: Streamlit + Gemini (Google AI Studio) + Spotify
 
 ## Project invariants
 
-- **Spotify data never reaches the LLM.** The prompt contains only conversation text and the LLM's own previous draft (title/artist pairs it generated). Resolved Spotify data is used only for display and playlist creation.
-- **No side effect without a click.** The LLM has no tools; a playlist is created only when the user clicks "Create on Spotify".
+- **Spotify data never reaches the LLM.** The prompt contains only conversation text and the LLM's own previous draft (title/artist pairs it generated). Resolved Spotify data is used only for display and playlist creation. The Claude engine's web search blocks Spotify domains.
+- **No side effect without a click.** The LLM's only tool is the Claude engine's read-only web search, run server-side by Anthropic; a playlist is created only when the user clicks "Create on Spotify".
 - **Playlist size:** 16 tracks by default, otherwise the user's number N, always clamped in Python to 1 ≤ N ≤ 30.
 
 ## Spotify Web API rules

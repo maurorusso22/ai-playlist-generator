@@ -1,7 +1,7 @@
 # AI Eval Results: Gemini 3.5 Flash-Lite vs Claude Haiku 5.5
 
 **Run:** 9 November 2026, `make eval` on branch `feat/haiku-llm`: 106 cases in 12 min 40 s (93 passed, 12 failed, 1 skipped).
-**Engines:** Gemini 3.5 Flash-Lite and Claude Haiku 5.5 (`effort = "low"`, `max_tokens = 8192`), same prompt, schema and guard. Intent gate: Gemma 4 26B. Method and checks: [evals.md](evals.md).
+**Engines:** Gemini 3.5 Flash-Lite and Claude Haiku 5.5 (`effort = "low"`, `max_tokens = 8192`, no web search: added after this run), same prompt, schema and guard. Intent gate: Gemma 4 26B. Method and checks: [evals.md](evals.md).
 
 ## Summary
 

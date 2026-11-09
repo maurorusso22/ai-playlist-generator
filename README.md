@@ -47,7 +47,7 @@ The following requirements define the expected behavior of the system from a use
 | FR-14 | The system SHOULD rate-limit chat messages per client IP (12 per minute, sliding window). | SHOULD |
 | FR-15 | The system SHOULD reply in the user's language. | SHOULD |
 | FR-16 | The system SHOULD leave tracks not found on Spotify out of both the playlist card and the saved playlist. | SHOULD |
-| FR-17 | The system MAY search the web for very recent releases mentioned by the user (future work, pending a free-tier check). | MAY |
+| FR-17 | The system MAY search the web for very recent releases mentioned by the user (Claude engine only: server-side web search with Spotify domains blocked). | MAY |
 | FR-18 | The system SHOULD stop clearly off-topic messages with a cheap intent gate before they reach Gemini, failing open: an off-topic message may get through, an in-scope one must never be blocked. | SHOULD |
 
 ---
@@ -139,13 +139,14 @@ sequenceDiagram
     Note over IG,SP: Spotify data (ids, names, images, match results) never flows into Gemma or Gemini
 ```
 
-> **Data boundary.** Spotify-resolved data is stored separately from the conversation and used only for display and playlist creation. The LLMs only ever see the user's messages and Gemini's own previous replies and drafts. For guests, the card is followed by a **"Log in with Spotify to save"** button; after the OAuth round-trip the same confirmation buttons appear.
+> **Data boundary.** Spotify-resolved data is stored separately from the conversation and used only for display and playlist creation. The LLMs only ever see the user's messages and the engine's own previous replies and drafts, plus, on the Claude engine, web search results from non-Spotify sites. For guests, the card is followed by a **"Log in with Spotify to save"** button; after the OAuth round-trip the same confirmation buttons appear.
 
 ### 1. Conversation Engine
 Implemented in `src/guards/intent_gate.py`, `src/guards/gate_prompt.py`, `src/conversation/chain.py`, `src/conversation/prompt.py`, `src/models/conversation/` and `src/conversation/criteria.py`:
 * **Intent gate (fail-open):** before Gemini, **Gemma 4 26B** (`gemma-4-26b-a4b-it`, a separate and larger free-tier quota) classifies the new message, with the assistant's last text reply as context, and answers one word. Only an unambiguous `OUT` blocks it: the user gets a fixed off-topic reply, saved like a normal turn, and Gemini is not called. Any other answer, an error, a `429` or the 3-second timeout lets the message through, and messages over 2,000 characters skip the gate. The gate runs with thinking set to `minimal`, temperature 0, a single attempt and a few output tokens. It is deliberately lazy: a missed off-topic message costs one Gemini request (and Gemini still declines it), while a blocked legitimate one would break the product.
 * **Selectable engine:** `llm.provider` picks the conversation engine: `gemini` in `config/base.toml` (local default), `claude` in `config/production.toml`. Both receive the same prompt, return the same `AssistantTurn` schema and go through the same guard and data boundary; only the call differs (`src/llm/gemini.py`, `src/llm/claude.py`).
 * **Claude engine:** one Messages API call per turn through the official Anthropic SDK, using **Claude Haiku 5.5** (`claude-haiku-5-5`). `output_config.format` constrains the reply to the `AssistantTurn` JSON schema, thinking stays adaptive and `claude.effort` (`low` by default) bounds its depth and token spend, and `claude.max_tokens` caps the cost of one reply. A refusal or a reply cut at the cap counts as unparsable and is retried once.
+* **Web search (Claude only):** with `claude.web_search` the model may run Anthropic's server-side web search before answering (`src/llm/claude_search.py`), told to search only for recent or unknown releases and tracklists, never for genres or moods. At most `claude.max_searches` searches per reply, `spotify.com` and `scdn.co` blocked, and today's date in the rules so "latest album" requests are checked against the web. A long search loop paused by the API (`pause_turn`) is resumed with the paused content, at most twice. Gemini has no search: Google Search grounding needs billing on Gemini 3+.
 * **One Gemini call per user turn** (default engine) through LangChain's `ChatGoogleGenerativeAI.with_structured_output`, using **Gemini 3.5 Flash-Lite** via a [Google AI Studio](https://aistudio.google.com/apikey) API key. The response is parsed into an `AssistantTurn` Pydantic model instead of free text:
 
   ```text
@@ -434,6 +435,8 @@ Settings and secrets live in separate files and never mix.
 | `claude.model` | `claude-haiku-5-5` | Claude model id, used when the provider is `claude`. |
 | `claude.effort` | `low` | Claude reasoning effort (`low` → `max`): higher effort thinks longer and spends more tokens. |
 | `claude.max_tokens` | `8192` | Output cap per Claude reply, thinking included. |
+| `claude.web_search` | `true` | Server-side web search for recent or unknown releases ($10 per 1,000 searches). |
+| `claude.max_searches` | `3` | Searches per reply; Claude batches queries in parallel and a batch over the cap fails. |
 | `intent_gate.model` | `gemma-4-26b-a4b-it` | Gemma model id of the intent gate. |
 | `spotify.client_id` | — (fill in) | Spotify app Client ID (public by design). |
 | `spotify.redirect_uri` | `http://127.0.0.1:8501/` | OAuth redirect URI; production overrides it with the canonical `https://` URL. |
@@ -844,7 +847,7 @@ redirect_uri = "https://yourdomain.com/"
 * **WebSocket awareness:** an open Streamlit tab keeps its WebSocket request, and therefore billable instance time, alive. At 1 vCPU the free 180,000 vCPU-seconds cover about 50 hours of open tabs per month; the single-instance cap bounds the bill beyond that but does not keep it at zero. A billing budget with email alerts is created at deployment time; automatic disconnection of idle tabs is on the roadmap.
 * **Lean Firestore usage:** one write per chat turn, capped message history, and TTL-based garbage collection (TTL deletions count against the free deletes).
 * **Quota-friendly Spotify usage:** identical suggestions are searched once per request and searches run on a bounded thread pool, with over-generation instead of extra search rounds. There is no cross-request cache, in line with Spotify's Developer Terms.
-* **No paid add-ons:** Firestore replaces Redis/Memorystore for sessions. The only paid service is the Claude engine in production, billed per token and capped by a workspace spend limit in the Claude Console; the intent gate (and Gemini, when selected) runs on the Google AI Studio free tier with no billing account.
+* **No paid add-ons:** Firestore replaces Redis/Memorystore for sessions. The only paid service is the Claude engine in production, billed per token plus $10 per 1,000 web searches (at most `claude.max_searches` per reply) and capped by a workspace spend limit in the Claude Console; the intent gate (and Gemini, when selected) runs on the Google AI Studio free tier with no billing account.
 * **Engine quota and spend protection:** the intent gate spends Gemma's free daily quota to keep clearly off-topic messages away from the conversation engine: paid Claude calls in production, Gemini's few hundred daily requests locally.
 * **No prompt caching on Claude (deliberate):** the only stable prefix, the ~550-token system rules, barely clears Haiku 5.5's 512-token minimum (shorter prefixes are silently not cached), and the system prompt also carries the current draft, which changes every revision. Input is a small share of each call's cost next to output and thinking, and at this traffic the 5-minute cache would mostly expire between requests, so the 1.25× cache writes could cost more than the reads save. Worth revisiting if the system prompt grows to thousands of tokens or traffic reaches several requests every few minutes.
 * **Custom Domain:** The `google_cloud_run_domain_mapping` resource and Google-managed TLS certificate are free of charge.
@@ -872,7 +875,8 @@ redirect_uri = "https://yourdomain.com/"
 ### 4. Output Safety & Prompt Injection
 * **No raw untrusted HTML:** chat messages (LLM and Spotify text) are rendered with plain `st.markdown`; the only HTML templates (playlist card, effects) pass every dynamic field through `html.escape` and accept only `https://open.spotify.com/` links and `https://i.scdn.co/` images. This closes the chain *prompt injection → XSS → `localStorage` session theft*.
 * **Intent gate cannot be turned against users:** the message and the assistant's reply are wrapped in tags and the gate is told never to follow instructions inside them. Because it fails open, a successful injection can only let a message through to Gemini; it can never block a legitimate one or trigger an action.
-* **No side effects from the model:** the LLM has no tools and can only return a structured draft. A playlist is created exclusively when the user clicks **Create on Spotify** under the latest assistant message, so an injected instruction cannot create, modify or delete anything on the user's account.
+* **Web results are untrusted input:** search results may carry injected instructions. The rules tell Claude to treat them as data and to put no links or sources in the reply, the reply is still schema-constrained JSON rendered without HTML, and Spotify domains are blocked.
+* **No side effects from the model:** the LLM's only tool is the read-only web search run by Anthropic, and it can only return a structured draft. A playlist is created exclusively when the user clicks **Create on Spotify** under the latest assistant message, so an injected instruction cannot create, modify or delete anything on the user's account.
 * **Idempotent creation:** the create button is disabled while busy and the stored `created_playlist` prevents duplicates.
 
 ### 5. Rate Limiting & Abuse Prevention
@@ -920,7 +924,7 @@ The project follows Spotify's [Developer Terms](https://developer.spotify.com/te
 * **Intent gate latency and recall:** every message first waits for a short Gemma call (at most 3 seconds, after which it goes to Gemini anyway). The gate is tuned to let doubtful messages through, so some off-topic messages still reach Gemini and are declined there.
 
 ### Roadmap
-- [ ] **Web search grounding for new releases (FR-17):** use Gemini grounding with Google Search when a user mentions a brand-new track, after confirming free-tier availability and quota.
+- [x] **Web search for new releases (FR-17):** done on the Claude engine with Anthropic's server-side web search; Gemini grounding still needs billing on Gemini 3+.
 - [ ] **Streaming responses:** stream the assistant's message while the playlist draft is being generated.
 - [ ] **Public playlists option:** let the user choose public visibility (requires the `playlist-modify-public` scope).
 - [ ] **Edit existing playlists:** append to or update a playlist previously created in the same session.
