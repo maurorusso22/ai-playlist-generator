@@ -841,6 +841,7 @@ redirect_uri = "https://yourdomain.com/"
 * **Quota-friendly Spotify usage:** identical suggestions are searched once per request and searches run on a bounded thread pool, with over-generation instead of extra search rounds. There is no cross-request cache, in line with Spotify's Developer Terms.
 * **No paid add-ons:** Firestore replaces Redis/Memorystore for sessions, and both LLMs run on the Google AI Studio free tier with no billing account.
 * **Gemini quota protection:** the intent gate spends Gemma's larger daily quota to keep clearly off-topic messages away from Gemini's few hundred daily requests.
+* **No prompt caching on Claude (deliberate):** the only stable prefix, the ~550-token system rules, barely clears Haiku 5.5's 512-token minimum (shorter prefixes are silently not cached), and the system prompt also carries the current draft, which changes every revision. Input is a small share of each call's cost next to output and thinking, and at this traffic the 5-minute cache would mostly expire between requests, so the 1.25× cache writes could cost more than the reads save. Worth revisiting if the system prompt grows to thousands of tokens or traffic reaches several requests every few minutes.
 * **Custom Domain:** The `google_cloud_run_domain_mapping` resource and Google-managed TLS certificate are free of charge.
 
 ---
