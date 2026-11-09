@@ -1,6 +1,6 @@
 # AI Playlist Generator
 
-A conversational web app that turns a natural-language request into a ready-to-play music playlist. Users describe what they want to hear (a genre, a mood, an era, their favorite artists) and an AI assistant powered by **Gemini** drafts the playlist, resolves every track against the **Spotify** catalog and, when the user is signed in with Spotify, creates it on their account with a single click. The whole stack runs on the **Google Cloud Free Tier**, provisioned with **Terraform** and served from **Cloud Run**.
+A conversational web app that turns a natural-language request into a ready-to-play music playlist. Users describe what they want to hear (a genre, a mood, an era, their favorite artists) and an AI assistant powered by **Claude Haiku** in production (**Gemini** locally, selectable in the config) drafts the playlist, resolves every track against the **Spotify** catalog and, when the user is signed in with Spotify, creates it on their account with a single click. The infrastructure runs on the **Google Cloud Free Tier**, provisioned with **Terraform** and served from **Cloud Run**.
 
 ---
 
@@ -20,7 +20,7 @@ The app offers two ways in:
 Beyond being a fun everyday tool, this project is a hands-on demonstration of production-minded **LLM application engineering** on a **Cloud-Native**, zero-cost footprint. It was built on four core pillars:
 * **Reliability:** The LLM answers with **structured output** (Pydantic schema), a deterministic Python guard enforces the minimum criteria, and every suggested track is verified against the Spotify catalog, so only tracks that actually exist can reach a saved playlist.
 * **Responsible AI Integration:** The LLM never receives Spotify data (as required by the Spotify Developer Policy), no side effect happens without an explicit click, and conversations self-destruct 60 minutes after the last message.
-* **Cloud Efficiency:** The entire infrastructure is hosted on **Google Cloud Platform** and the LLM is served by **Google AI Studio**, both within their Free Tiers for a zero-cost footprint.
+* **Cloud Efficiency:** The entire infrastructure is hosted on **Google Cloud Platform** within its Free Tier; the intent gate (and the Gemini engine, when selected) runs on the **Google AI Studio** free tier, and the only paid component is the Claude engine, billed per token under a spend limit.
 * **Serverless Scalability:** Built with a "scale-to-zero" approach on Cloud Run and fully described as code with Terraform, ensuring no fixed maintenance costs.
 
 ---
@@ -59,7 +59,7 @@ The following requirements define the expected behavior of the system from a use
 | NFR-01 | Clarification reply latency (P95) | ≤ 3 seconds | Performance |
 | NFR-02 | Default 16-track playlist generated and resolved on Spotify (P95) | ≤ 10 seconds | Performance |
 | NFR-03 | System availability | ≥ 99% monthly uptime (Cloud Run SLA) | Availability |
-| NFR-04 | Monthly infrastructure cost | $0 (within GCP and Google AI Studio Free Tiers) | Cost |
+| NFR-04 | Monthly infrastructure cost | $0 (within GCP and Google AI Studio Free Tiers); Claude API usage capped by a Console spend limit | Cost |
 | NFR-05 | Track resolution rate for mainstream requests | ≥ 90% of requested tracks found on Spotify | Reliability |
 | NFR-06 | Session lifetime | Exactly 60 minutes sliding from the last message, enforced on read | Privacy |
 | NFR-07 | Cold-start latency after scale-to-zero | ≤ 5 seconds | Performance |
@@ -75,7 +75,7 @@ The following are hard boundaries that govern all design and implementation deci
 
 * **GCP Free Tier only:** No paid GCP services or SKUs may be used. Infrastructure must remain within the Always Free limits of Cloud Run, Firestore, Secret Manager and Artifact Registry, in region `us-central1`. Paid alternatives such as Memorystore (Redis) are therefore excluded.
 * **Google AI Studio Free Tier:** LLM calls must stay within the free-tier rate limits; no billing account is attached. Quotas are per model, so the intent gate (Gemma 4 26B, a much larger daily quota) protects Gemini 3.5 Flash-Lite's few hundred requests per day. Per-model RPM/RPD limits are shown per project in the AI Studio console (they are not fully published), preview models have tighter limits, and daily quotas reset at midnight Pacific time. Free-tier prompts may be used by Google to improve its products.
-* **Claude API (optional, paid):** setting `llm.provider = "claude"` moves the conversation engine to Claude Haiku 5.5, the only component billed per token (prepaid credit, no free tier). A spend limit in the Claude Console caps the monthly cost; the intent gate stays on Gemma either way.
+* **Claude API (paid):** production runs the conversation engine on Claude Haiku 5.5 (`llm.provider = "claude"` in `config/production.toml`), the only component billed per token (prepaid credit, no free tier). A workspace spend limit in the Claude Console caps the monthly cost; the intent gate stays on Gemma, and local runs default to Gemini.
 * **Spotify Development Mode:** Since the February 2026 platform changes, the app owner needs a **Spotify Premium** account, each Development Mode app allows **at most 5 allowlisted users** (added manually in the Developer Dashboard), and **Extended Quota Mode is only available to organizations with ≥ 250k monthly active users**, so it is not reachable for this project. Spotify login is therefore **invite-only**; everyone else uses guest mode.
 * **Spotify quotas and catalog access:** Rate-limit quotas are counted per developer account and their numeric values are not published; `429` responses may carry `reason: QUOTA_EXCEEDED`. New Development Mode apps receive at most 10 results per search request, and the recommendations, related-artists and audio-features endpoints are unavailable to new apps (deprecated in November 2024). Track selection is therefore the LLM's job, not Spotify's.
 * **Spotify Web API migration:** The February 2026 migration replaced `POST /users/{id}/playlists` with `POST /me/playlists` and `/playlists/{id}/tracks` with `/playlists/{id}/items`; the app targets only the post-migration endpoints.
@@ -91,7 +91,7 @@ The following are hard boundaries that govern all design and implementation deci
 
 ## 🏗️ Architecture
 
-The system is a single Streamlit service that orchestrates three external capabilities: **LLMs** for filtering off-topic messages (Gemma) and for understanding requests and drafting playlists (Gemini), the **Spotify Web API** for catalog resolution and playlist creation, and **Firestore** for short-lived sessions. It is designed to be modular, testable offline, and compliant by construction. The entire cloud infrastructure is managed via **Infrastructure as Code (IaC) using Terraform**.
+The system is a single Streamlit service that orchestrates three external capabilities: **LLMs** for filtering off-topic messages (Gemma) and for understanding requests and drafting playlists (Claude Haiku in production, Gemini locally), the **Spotify Web API** for catalog resolution and playlist creation, and **Firestore** for short-lived sessions. It is designed to be modular, testable offline, and compliant by construction. The entire cloud infrastructure is managed via **Infrastructure as Code (IaC) using Terraform**.
 
 **End-to-end flow (logged-in user):**
 
@@ -144,7 +144,7 @@ sequenceDiagram
 ### 1. Conversation Engine
 Implemented in `src/guards/intent_gate.py`, `src/guards/gate_prompt.py`, `src/conversation/chain.py`, `src/conversation/prompt.py`, `src/models/conversation/` and `src/conversation/criteria.py`:
 * **Intent gate (fail-open):** before Gemini, **Gemma 4 26B** (`gemma-4-26b-a4b-it`, a separate and larger free-tier quota) classifies the new message, with the assistant's last text reply as context, and answers one word. Only an unambiguous `OUT` blocks it: the user gets a fixed off-topic reply, saved like a normal turn, and Gemini is not called. Any other answer, an error, a `429` or the 3-second timeout lets the message through, and messages over 2,000 characters skip the gate. The gate runs with thinking set to `minimal`, temperature 0, a single attempt and a few output tokens. It is deliberately lazy: a missed off-topic message costs one Gemini request (and Gemini still declines it), while a blocked legitimate one would break the product.
-* **Selectable engine:** `llm.provider` in `config/base.toml` picks the conversation engine, `gemini` (default) or `claude`. Both receive the same prompt, return the same `AssistantTurn` schema and go through the same guard and data boundary; only the call differs (`src/llm/gemini.py`, `src/llm/claude.py`).
+* **Selectable engine:** `llm.provider` picks the conversation engine: `gemini` in `config/base.toml` (local default), `claude` in `config/production.toml`. Both receive the same prompt, return the same `AssistantTurn` schema and go through the same guard and data boundary; only the call differs (`src/llm/gemini.py`, `src/llm/claude.py`).
 * **Claude engine:** one Messages API call per turn through the official Anthropic SDK, using **Claude Haiku 5.5** (`claude-haiku-5-5`). `output_config.format` constrains the reply to the `AssistantTurn` JSON schema, thinking stays adaptive and `claude.effort` (`low` by default) bounds its depth and token spend, and `claude.max_tokens` caps the cost of one reply. A refusal or a reply cut at the cap counts as unparsable and is retried once.
 * **One Gemini call per user turn** (default engine) through LangChain's `ChatGoogleGenerativeAI.with_structured_output`, using **Gemini 3.5 Flash-Lite** via a [Google AI Studio](https://aistudio.google.com/apikey) API key. The response is parsed into an `AssistantTurn` Pydantic model instead of free text:
 
@@ -249,7 +249,7 @@ All GCP resources are provisioned with **Terraform** (google provider `~> 5.0`),
 | TTL policy | `google_firestore_field.sessions_ttl` | TTL on `sessions.expires_at`. |
 | Security rules | `google_firebaserules_ruleset.firestore`, `google_firebaserules_release.firestore` | Deny all client access (the server SDK bypasses rules). |
 | Service account | `google_service_account.app`, `google_project_iam_member.datastore_user` | Runtime identity `playlist-generator` with `roles/datastore.user`. |
-| Secret access | `google_secret_manager_secret_iam_member.app_api_key`, `.app_spotify_client_secret`, `.app_session_encryption_key` | `secretAccessor` on the three secrets only. |
+| Secret access | `google_secret_manager_secret_iam_member.app_api_key`, `.app_spotify_client_secret`, `.app_session_encryption_key`, `.app_anthropic_api_key` | `secretAccessor` on the four secrets only. |
 | Artifact Registry | `google_artifact_registry_repository.app` | Docker repository `playlist-generator` with cleanup policies (keep the 2 most recent versions, delete the rest). |
 | Cloud Run | `google_cloud_run_v2_service.app`, `google_cloud_run_v2_service_iam_member.public` | The service and its public invoker (`allUsers`). |
 | CI/CD identity | `google_service_account.deployer`, `google_iam_workload_identity_pool.github`, `google_iam_workload_identity_pool_provider.github`, plus IAM members | Keyless GitHub Actions deploys as `playlist-deployer` (pool `github-actions`, provider `github-oidc`), with grants scoped to the repository, the service and the runtime SA. |
@@ -274,12 +274,12 @@ The application is containerized with Docker (`python:3.12.13-slim-bookworm`, bu
 | :--- | :--- | :--- |
 | **Language** | Python 3.12.13 | Primary programming language for backend, AI and UI logic. |
 | **AI Framework** | LangChain (`langchain-core`, `langchain-google-genai`) | Prompting, chat history and structured output. |
-| **LLM** | Gemini 3.5 Flash-Lite (Google AI Studio, `gemini-3.5-flash-lite`) | Conversation understanding and playlist drafting (default engine). |
-| **LLM (alternative)** | Claude Haiku 5.5 (Claude API via the `anthropic` SDK, `claude-haiku-5-5`) | Same role when `llm.provider = "claude"`; billed per token. |
+| **LLM** | Claude Haiku 5.5 (Claude API via the `anthropic` SDK, `claude-haiku-5-5`) | Conversation understanding and playlist drafting in production; billed per token. |
+| **LLM (local default)** | Gemini 3.5 Flash-Lite (Google AI Studio, `gemini-3.5-flash-lite`) | Same role when `llm.provider = "gemini"` (`config/base.toml`). |
 | **Intent gate** | Gemma 4 26B A4B (Google AI Studio, `gemma-4-26b-a4b-it`) | Fail-open filter that stops clearly off-topic messages before Gemini. |
 | **Music Catalog** | Spotify Web API (custom `httpx` client) | Track search, user profile and playlist creation. |
 | **Session Store** | Firestore Native Mode + TTL policy | Short-lived (1-hour) conversation storage. |
-| **Secrets** | Google Secret Manager | `GOOGLE_API_KEY`, `SPOTIFY_CLIENT_SECRET`, `SESSION_ENCRYPTION_KEY`. |
+| **Secrets** | Google Secret Manager | `GOOGLE_API_KEY`, `SPOTIFY_CLIENT_SECRET`, `SESSION_ENCRYPTION_KEY`, `ANTHROPIC_API_KEY`. |
 | **IaC** | Terraform (google provider `~> 5.0`) | Infrastructure as Code for automated GCP provisioning. |
 | **Hosting** | Google Cloud Run | Serverless container execution with scale-to-zero and a single-instance cap. |
 | **UI** | Streamlit + custom CSS/HTML + `localStorage` bridge component | Themed chat interface with animated effects. |
@@ -420,7 +420,7 @@ Settings and secrets live in separate files and never mix.
 | `GOOGLE_API_KEY` | Google AI Studio API key for Gemini and the Gemma intent gate. |
 | `SPOTIFY_CLIENT_SECRET` | Spotify app Client Secret. |
 | `SESSION_ENCRYPTION_KEY` | Fernet key encrypting Spotify tokens at rest. |
-| `ANTHROPIC_API_KEY` | Claude API key; required only when `llm.provider = "claude"`. Local `.env` only for now: Terraform does not inject it on Cloud Run, so production stays on Gemini until it is added to Secret Manager and to the service. |
+| `ANTHROPIC_API_KEY` | Claude API key, required when `llm.provider = "claude"` (always on Cloud Run). Locally needed only to try the Claude engine: put `[llm]` `provider = "claude"` in a git-ignored `config/local.toml`, the overlay of the default `APP_ENV=local`. |
 
 **Settings** go in `config/base.toml` (committed). On Cloud Run, `APP_ENV=production` also loads `config/production.toml`, which overrides single keys (the redirect URI). Unknown keys, wrong types and blank values raise a `ConfigError` naming the `section.key` the first time the settings are read.
 
@@ -643,7 +643,7 @@ terraform -chdir=terraform output
 
 ### Step 3 — Store secrets in Secret Manager
 
-`GOOGLE_API_KEY`, `SPOTIFY_CLIENT_SECRET` and `SESSION_ENCRYPTION_KEY` are injected at runtime via Secret Manager — never stored as plain environment variables or in Terraform state.
+`GOOGLE_API_KEY`, `SPOTIFY_CLIENT_SECRET`, `SESSION_ENCRYPTION_KEY` and `ANTHROPIC_API_KEY` are injected at runtime via Secret Manager — never stored as plain environment variables or in Terraform state.
 
 ```bash
 # Gemini API key
@@ -658,15 +658,20 @@ echo -n "YOUR_SPOTIFY_CLIENT_SECRET" | \
 FERNET_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
 echo -n "$FERNET_KEY" | \
   gcloud secrets create SESSION_ENCRYPTION_KEY --data-file=- --project=YOUR_PROJECT_ID
+
+# Claude API key (a key from a workspace with a spend limit)
+echo -n "YOUR_ANTHROPIC_API_KEY" | \
+  gcloud secrets create ANTHROPIC_API_KEY --data-file=- --project=YOUR_PROJECT_ID
 ```
 
-Grant the Cloud Run service account access to exactly these three secrets (the bindings reference the secrets by name, so they must exist first):
+Grant the Cloud Run service account access to exactly these four secrets (the bindings reference the secrets by name, so they must exist first):
 ```bash
 cd terraform
 terraform apply \
   -target=google_secret_manager_secret_iam_member.app_api_key \
   -target=google_secret_manager_secret_iam_member.app_spotify_client_secret \
   -target=google_secret_manager_secret_iam_member.app_session_encryption_key \
+  -target=google_secret_manager_secret_iam_member.app_anthropic_api_key \
   -var="project_id=YOUR_PROJECT_ID"
 cd ..
 ```
@@ -835,12 +840,12 @@ redirect_uri = "https://yourdomain.com/"
 
 ### Cost Optimization Strategy
 * **Zero Idle Cost:** Cloud Run's scale-to-zero ensures no compute charges during inactive periods; `max-instances = 1`, 1 vCPU and 512 MiB bound the worst case.
-* **Free Tier Quotas:** Designed to fit within the Always Free limits for Cloud Run (2M requests, 180,000 vCPU-seconds and 360,000 GiB-seconds per month), Firestore (1 GiB storage, 50,000 reads, 20,000 writes and 20,000 deletes per day), Secret Manager (6 active secret versions and 10,000 access operations per month, of which 3 secrets are used) and Artifact Registry (0.5 GB storage, kept in check by a cleanup policy that retains the 2 most recent images).
+* **Free Tier Quotas:** Designed to fit within the Always Free limits for Cloud Run (2M requests, 180,000 vCPU-seconds and 360,000 GiB-seconds per month), Firestore (1 GiB storage, 50,000 reads, 20,000 writes and 20,000 deletes per day), Secret Manager (6 active secret versions and 10,000 access operations per month, of which 4 secrets are used) and Artifact Registry (0.5 GB storage, kept in check by a cleanup policy that retains the 2 most recent images).
 * **WebSocket awareness:** an open Streamlit tab keeps its WebSocket request, and therefore billable instance time, alive. At 1 vCPU the free 180,000 vCPU-seconds cover about 50 hours of open tabs per month; the single-instance cap bounds the bill beyond that but does not keep it at zero. A billing budget with email alerts is created at deployment time; automatic disconnection of idle tabs is on the roadmap.
 * **Lean Firestore usage:** one write per chat turn, capped message history, and TTL-based garbage collection (TTL deletions count against the free deletes).
 * **Quota-friendly Spotify usage:** identical suggestions are searched once per request and searches run on a bounded thread pool, with over-generation instead of extra search rounds. There is no cross-request cache, in line with Spotify's Developer Terms.
-* **No paid add-ons:** Firestore replaces Redis/Memorystore for sessions, and both LLMs run on the Google AI Studio free tier with no billing account.
-* **Gemini quota protection:** the intent gate spends Gemma's larger daily quota to keep clearly off-topic messages away from Gemini's few hundred daily requests.
+* **No paid add-ons:** Firestore replaces Redis/Memorystore for sessions. The only paid service is the Claude engine in production, billed per token and capped by a workspace spend limit in the Claude Console; the intent gate (and Gemini, when selected) runs on the Google AI Studio free tier with no billing account.
+* **Engine quota and spend protection:** the intent gate spends Gemma's free daily quota to keep clearly off-topic messages away from the conversation engine: paid Claude calls in production, Gemini's few hundred daily requests locally.
 * **No prompt caching on Claude (deliberate):** the only stable prefix, the ~550-token system rules, barely clears Haiku 5.5's 512-token minimum (shorter prefixes are silently not cached), and the system prompt also carries the current draft, which changes every revision. Input is a small share of each call's cost next to output and thinking, and at this traffic the 5-minute cache would mostly expire between requests, so the 1.25× cache writes could cost more than the reads save. Worth revisiting if the system prompt grows to thousands of tokens or traffic reaches several requests every few minutes.
 * **Custom Domain:** The `google_cloud_run_domain_mapping` resource and Google-managed TLS certificate are free of charge.
 
@@ -849,11 +854,11 @@ redirect_uri = "https://yourdomain.com/"
 ## 🔒 Security & Best Practices
 
 ### 1. Secret Management
-* **No Hardcoded Credentials:** `GOOGLE_API_KEY`, `SPOTIFY_CLIENT_SECRET` and `SESSION_ENCRYPTION_KEY` are managed via **Google Secret Manager** — never committed to source control, stored as plain Cloud Run environment variables, or written to Terraform state.
+* **No Hardcoded Credentials:** `GOOGLE_API_KEY`, `SPOTIFY_CLIENT_SECRET`, `SESSION_ENCRYPTION_KEY` and `ANTHROPIC_API_KEY` are managed via **Google Secret Manager** — never committed to source control, stored as plain Cloud Run environment variables, or written to Terraform state.
 * **Keyless CI/CD:** GitHub Actions authenticates through **Workload Identity Federation**; no service account key exists. The repository only stores the provider name (`WIF_PROVIDER`).
 
 ### 2. IAM & Principle of Least Privilege
-* **Dedicated Runtime Service Account:** The Cloud Run instance runs as `playlist-generator` with only `roles/datastore.user` and `roles/secretmanager.secretAccessor` scoped to the three secrets. It holds no deploy rights, so a compromised container cannot push images or roll out a new revision of itself.
+* **Dedicated Runtime Service Account:** The Cloud Run instance runs as `playlist-generator` with only `roles/datastore.user` and `roles/secretmanager.secretAccessor` scoped to the four secrets. It holds no deploy rights, so a compromised container cannot push images or roll out a new revision of itself.
 * **Separate Deploy Service Account:** GitHub Actions impersonates `playlist-deployer`, whose grants are each scoped to a single resource: `artifactregistry.writer` on the `playlist-generator` repository, `run.developer` on the `playlist-generator` service and `iam.serviceAccountUser` on the runtime service account (required to deploy revisions that run as it). It cannot read secrets or Firestore.
 * **No Project-Level Admin Rights:** Neither service account holds owner/editor, IAM-admin or any other project-level deploy role.
 * **Locked-down Firestore:** security rules deny all client access; only the server-side SDK, authenticated as the service account, can read or write sessions.
