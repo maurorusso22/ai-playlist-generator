@@ -26,6 +26,9 @@ ENV/
 # Developer-only settings overlay (APP_ENV=local), e.g. to try the Claude engine locally
 config/local.toml
 
+# AI eval logs written by `make eval`
+tests/results/
+
 # Google Cloud credentials
 service-account*.json
 gcloud/
