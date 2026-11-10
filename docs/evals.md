@@ -11,9 +11,14 @@ make eval
 # One suite
 make eval EVAL=tests/evals/suites/test_gate_eval.py
 
-# One case on one model
+# One engine, with its own log name
+make eval EVAL="tests/evals -k haiku" EVAL_NAME=haiku
+
+# One case on one model (plain pytest: no log file)
 .venv/bin/python -m pytest tests/evals -v -k "resize-draft and flash"
 ```
+
+`make eval` also saves the whole output, summary included, to `tests/results/eval-<EVAL_NAME>-<timestamp>.log` (`EVAL_NAME` defaults to `full`). The folder is git-ignored: the logs are local records, and the figures worth keeping go in [eval-results.md](eval-results.md).
 
 Requirements: a complete `.env` and `config/base.toml`, as for the integration tests; the Claude cases also need `ANTHROPIC_API_KEY` in `.env` and are skipped without it. The evals never run in CI or in `make test`: they spend free-tier quota on Google AI Studio and real credit on the Claude API.
 
