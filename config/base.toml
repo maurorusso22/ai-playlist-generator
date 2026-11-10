@@ -20,7 +20,7 @@ model = "claude-haiku-5-5"  # Claude model id (Claude API), used when provider =
 effort = "low"  # Reasoning effort (low → max): lower effort spends fewer tokens per reply
 max_tokens = 8192  # Output cap per reply, thinking included: bounds the cost of one call
 web_search = true  # Server-side web search for recent or unknown releases ($10 per 1,000 searches)
-max_searches = 3  # Searches per reply: Claude batches queries in parallel and a batch over it fails
+max_searches = 3  # Searches per reply ($0.01 each); a call over the cap returns an error result
 
 [intent_gate]
 model = "gemma-4-26b-a4b-it"  # Gemma model id of the fail-open out-of-scope filter

@@ -14,7 +14,7 @@ from tests.unit.claude_fakes import CLARIFY, PAUSED_PARAM, claude_response
 
 
 def test_search_tool_and_rules_are_sent(claude_client: MagicMock) -> None:
-    """Search is on by default: capped tool, Spotify domains blocked, date and cap in the rules."""
+    """Search is on by default: direct capped calls, Spotify blocked, date and cap in the rules."""
     create = claude_client.return_value.messages.create
     create.return_value = claude_response(CLARIFY.model_dump_json(), searches=2)
     assert chain.run_turn("Latest Olivia Rodrigo album", [], None) == CLARIFY
@@ -25,6 +25,7 @@ def test_search_tool_and_rules_are_sent(claude_client: MagicMock) -> None:
             "name": "web_search",
             "max_uses": 3,
             "blocked_domains": ["spotify.com", "scdn.co"],
+            "allowed_callers": ["direct"],
         }
     ]
     assert f"today is {date.today().isoformat()}" in kwargs["system"]
