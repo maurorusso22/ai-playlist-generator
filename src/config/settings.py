@@ -4,54 +4,34 @@ import re
 from functools import lru_cache
 from typing import Annotated, Self
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    PositiveInt,
-    StringConstraints,
-    ValidationError,
-    field_validator,
-    model_validator,
-)
+from pydantic import Field, PositiveInt, ValidationError, field_validator, model_validator
 
 from src.config.constants import PLAYLIST_HARD_MAX_SIZE, PLAYLIST_MIN_SIZE
 from src.config.errors import ConfigError
 from src.config.files import load_config
+from src.config.llm_settings import ClaudeConfig, LlmConfig, ModelConfig
+from src.config.sections import Section, Text
 
 # Spotify accepts HTTPS anywhere, but plain HTTP only on a loopback IP literal (never localhost).
 REDIRECT_URI_PATTERN = re.compile(r"https://[^/?#\s]+(/\S*)?|http://127\.0\.0\.1:\d{1,5}/\S*")
 
-Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]  # Non-blank string
 Size = Annotated[int, Field(ge=PLAYLIST_MIN_SIZE, le=PLAYLIST_HARD_MAX_SIZE)]  # Playlist size
 
 
-class _Section(BaseModel):
-    """Base of every section: immutable, strict types (no "16" for 16), unknown keys rejected."""
-
-    model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
-
-
-class GcpConfig(_Section):
+class GcpConfig(Section):
     """[gcp]: the Google Cloud project hosting Firestore."""
 
     project_id: Text
 
 
-class SessionsConfig(_Section):
+class SessionsConfig(Section):
     """[sessions]: chat sessions stored in Firestore."""
 
     collection: Text
     ttl_minutes: PositiveInt
 
 
-class ModelConfig(_Section):
-    """[llm] and [intent_gate]: a Google AI Studio model id."""
-
-    model: Text
-
-
-class SpotifyConfig(_Section):
+class SpotifyConfig(Section):
     """[spotify]: the non-secret half of the Spotify app and the catalog market."""
 
     client_id: Text
@@ -74,7 +54,7 @@ class SpotifyConfig(_Section):
         return uri
 
 
-class PlaylistConfig(_Section):
+class PlaylistConfig(Section):
     """[playlist]: default and maximum size, both within the fixed hard bounds."""
 
     default_size: Size
@@ -92,19 +72,21 @@ class PlaylistConfig(_Section):
         return self
 
 
-class RateLimitConfig(_Section):
+class RateLimitConfig(Section):
     """[rate_limit]: per-IP sliding window of chat messages."""
 
     max_requests: PositiveInt
     window: PositiveInt
 
 
-class Settings(_Section):
+class Settings(Section):
     """Every non-secret setting, one attribute per TOML section."""
 
     gcp: GcpConfig
     sessions: SessionsConfig
-    llm: ModelConfig
+    llm: LlmConfig
+    gemini: ModelConfig
+    claude: ClaudeConfig
     intent_gate: ModelConfig
     spotify: SpotifyConfig
     playlist: PlaylistConfig

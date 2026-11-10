@@ -1,0 +1,11 @@
+# Existence eval: each request yields a draft whose suggestions are looked up on Spotify with
+# the app's own resolver. From mainstream to niche, where invented tracks are more likely.
+
+- {id: mainstream-house, request: "The biggest 2010s house hits"}
+- {id: britpop, request: "90s Britpop classics"}
+- {id: italian-cantautori, request: "Cantautori italiani degli anni '70"}
+- {id: bossa-nova, request: "Brazilian bossa nova from the 60s"}
+- {id: city-pop, request: "Japanese city pop from the 80s"}
+- {id: krautrock, request: "Deep cuts of 70s German krautrock"}
+- {id: modern-jazz, request: "Contemporary jazz released after 2018"}
+- {id: afrobeat, request: "Classic Nigerian afrobeat from the 70s"}

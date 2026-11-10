@@ -23,6 +23,7 @@ locals {
     api_key                = "GOOGLE_API_KEY"         # Gemini API key
     spotify_client_secret  = "SPOTIFY_CLIENT_SECRET"  # Spotify app Client Secret
     session_encryption_key = "SESSION_ENCRYPTION_KEY" # Fernet key for Spotify tokens at rest
+    anthropic_api_key      = "ANTHROPIC_API_KEY"      # Claude API key (llm.provider = "claude")
   }
 
   # App settings ship in the image (config/*.toml); this only selects config/production.toml.
@@ -155,6 +156,15 @@ resource "google_secret_manager_secret_iam_member" "app_session_encryption_key" 
   depends_on = [google_project_service.secretmanager]
 }
 
+resource "google_secret_manager_secret_iam_member" "app_anthropic_api_key" {
+  project   = var.project_id
+  secret_id = local.secret_ids.anthropic_api_key
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.app.email}"
+
+  depends_on = [google_project_service.secretmanager]
+}
+
 # ── Artifact Registry (applied in Phase 7) ─────────────────────────────────────
 # Cleanup keeps the newest 2 versions to stay within the 0.5 GB free storage; KEEP wins over DELETE.
 
@@ -260,6 +270,7 @@ resource "google_cloud_run_v2_service" "app" {
     google_secret_manager_secret_iam_member.app_api_key,
     google_secret_manager_secret_iam_member.app_spotify_client_secret,
     google_secret_manager_secret_iam_member.app_session_encryption_key,
+    google_secret_manager_secret_iam_member.app_anthropic_api_key,
   ]
 }
 

@@ -1,8 +1,11 @@
-"""Unit tests for the Gemini and Spotify error-to-message mapping."""
+"""Unit tests for the LLM (Gemini, Claude) and Spotify error-to-message mapping."""
 
+import anthropic
+import httpx2
 import pytest
 from google.genai.errors import ClientError, ServerError
 
+from src.config.errors import ConfigError
 from src.conversation.chain import AssistantUnavailableError
 from src.spotify.errors import (
     SpotifyAuthError,
@@ -31,6 +34,39 @@ def _gemini(code: int, quota_id: str | None = None) -> ClientError:
     details = [{"violations": [{"quotaId": quota_id}]}] if quota_id else []
     body = {"error": {"code": code, "message": "m", "status": "S", "details": details}}
     return ClientError(code, body)
+
+
+def _claude(error: type[anthropic.APIStatusError], code: int) -> anthropic.APIStatusError:
+    """Build an Anthropic API error as the SDK raises it.
+
+    Args:
+        error: The SDK error class.
+        code: HTTP status.
+
+    Returns:
+        The error.
+    """
+    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+    return error("m", response=httpx2.Response(code, request=request), body=None)
+
+
+@pytest.mark.parametrize(
+    ("exc", "expected"),
+    [
+        (_claude(anthropic.EnforcedSpendLimitReachedError, 429), errors.BUDGET_EXHAUSTED),
+        (_claude(anthropic.RateLimitError, 429), errors.AI_BUSY),
+        (_claude(anthropic.OverloadedError, 529), errors.UNAVAILABLE),
+        (_claude(anthropic.InternalServerError, 500), errors.UNAVAILABLE),
+        (anthropic.APITimeoutError(httpx2.Request("POST", "https://x.test")), errors.UNAVAILABLE),
+        (_claude(anthropic.NotFoundError, 404), errors.MISCONFIGURED),
+        (_claude(anthropic.AuthenticationError, 401), errors.MISCONFIGURED),
+        (ConfigError("Missing ANTHROPIC_API_KEY"), errors.MISCONFIGURED),
+        (_claude(anthropic.BadRequestError, 400), errors.GENERIC),
+    ],
+)
+def test_claude_errors_are_mapped(exc: Exception, expected: str) -> None:
+    """Spend cap, rate limit, outages and misconfiguration each get their own message."""
+    assert errors.assistant_error_message(exc) == expected
 
 
 @pytest.mark.parametrize(

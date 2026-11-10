@@ -13,6 +13,7 @@ SECRET_VARS = (  # Environment variables holding the secrets, all required
     "SPOTIFY_CLIENT_SECRET",
     "SESSION_ENCRYPTION_KEY",
 )
+OPTIONAL_SECRET_VARS = ("ANTHROPIC_API_KEY",)  # Needed only by the Claude engine, checked on use
 
 
 @dataclass(frozen=True)
@@ -22,6 +23,7 @@ class Secrets:
     google_api_key: str = field(repr=False)
     spotify_client_secret: str = field(repr=False)
     session_encryption_key: str = field(repr=False)
+    anthropic_api_key: str = field(repr=False, default="")  # Empty unless llm.provider = claude
 
 
 @lru_cache(maxsize=1)
@@ -34,8 +36,8 @@ def get_secrets() -> Secrets:
         The secrets.
     """
     load_dotenv()
-    values = {name: os.getenv(name, "").strip() for name in SECRET_VARS}
-    missing = [name for name, value in values.items() if not value]
+    values = {name: os.getenv(name, "").strip() for name in SECRET_VARS + OPTIONAL_SECRET_VARS}
+    missing = [name for name in SECRET_VARS if not values[name]]
     if missing:
         raise ConfigError(f"Missing required secrets (set them in .env): {', '.join(missing)}")
     return Secrets(**{name.lower(): value for name, value in values.items()})

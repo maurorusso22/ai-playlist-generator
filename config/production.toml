@@ -5,3 +5,8 @@
 # match a Redirect URI registered in the Spotify Developer Dashboard exactly.
 [spotify]
 redirect_uri = "https://playlist-generator-elrnoec7rq-uc.a.run.app/"  # Canonical Cloud Run URL
+
+# Production chat engine: Claude Haiku 5.5 ([claude] in base.toml); local runs stay on Gemini.
+# Needs the ANTHROPIC_API_KEY secret, injected by Terraform from Secret Manager.
+[llm]
+provider = "claude"  # Conversation engine on Cloud Run

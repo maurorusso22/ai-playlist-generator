@@ -23,6 +23,9 @@ ENV/
 *.json
 !package.json
 
+# Developer-only settings overlay (APP_ENV=local), e.g. to try the Claude engine locally
+config/local.toml
+
 # Google Cloud credentials
 service-account*.json
 gcloud/

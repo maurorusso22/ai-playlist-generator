@@ -1,6 +1,7 @@
 # ── AI / LLM ──────────────────────────────────────────────────────────────────
 langchain-core>=1.0.0
 langchain-google-genai>=4.4.2  # google-genai based; handles 3.5 Flash-Lite fixed sampling and no-prefill rules
+anthropic>=2.7.0  # Claude engine: structured outputs, effort, typed spend-cap error
 
 # ── Models ────────────────────────────────────────────────────────────────────
 pydantic>=2.7.0       # v2 models for structured output and session state
@@ -27,3 +28,4 @@ ruff>=0.9.0           # Linter and formatter — enforces all code quality stand
 pytest>=8.0.0
 pytest-mock>=3.14.0
 respx>=0.21.0         # Mocks httpx at the transport layer for offline Spotify tests
+pyyaml>=6.0.0         # AI eval datasets (tests/evals/datasets)

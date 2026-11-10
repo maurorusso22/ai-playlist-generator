@@ -1,4 +1,4 @@
-"""User-facing messages and the mapping from Gemini and Spotify errors to them.
+"""User-facing messages and the mapping from LLM (Gemini, Claude) and Spotify errors to them.
 
 Errors are logged with their status and provider message, never with tokens. Text that comes
 from a provider is escaped before it reaches `st.markdown`-based elements.
@@ -7,8 +7,10 @@ from a provider is escaped before it reaches `st.markdown`-based elements.
 import logging
 import re
 
+import anthropic
 from google.genai.errors import ClientError, ServerError
 
+from src.config.errors import ConfigError
 from src.config.settings import get_settings
 from src.conversation.chain import AssistantUnavailableError
 from src.spotify.errors import (
@@ -22,7 +24,9 @@ from src.spotify.errors import (
 )
 
 DAILY_QUOTA = "The AI quota is used up for today. Please come back tomorrow."  # Any Gemini 429
-MISCONFIGURED = "The assistant is misconfigured. Please try again later."  # Gemini 404
+BUDGET_EXHAUSTED = "The AI budget is used up for this month. Please come back later."  # Claude cap
+AI_BUSY = "The assistant is busy right now. Please try again in a minute."  # Claude 429
+MISCONFIGURED = "The assistant is misconfigured. Please try again later."  # 404, auth, config
 UNAVAILABLE = "Assistant temporarily unavailable. Please try again."  # 5xx or parse failure
 GENERIC = "Something went wrong while generating a reply. Please try again."  # Other errors
 SPOTIFY_BUSY = "Spotify is busy, try again in a few minutes."  # Spotify 429/quota/5xx
@@ -77,12 +81,43 @@ def assistant_error_message(exc: Exception) -> str:
         _logger.warning("Gemini quota exhausted: %s (details: %s)", exc.message, exc.details)
         return DAILY_QUOTA
     if isinstance(exc, ClientError) and exc.code == 404:
-        _logger.error("Gemini model not found: %s (%s)", get_settings().llm.model, exc.message)
+        _logger.error("Gemini model not found: %s (%s)", get_settings().gemini.model, exc.message)
         return MISCONFIGURED
+    if isinstance(exc, anthropic.APIError | ConfigError):
+        return _claude_error_message(exc)
     if isinstance(exc, ServerError | AssistantUnavailableError):
         _logger.error("Assistant unavailable: %s", exc)
         return UNAVAILABLE
     _logger.exception("Unexpected assistant error", exc_info=exc)
+    return GENERIC
+
+
+def _claude_error_message(exc: anthropic.APIError | ConfigError) -> str:
+    """Map an Anthropic SDK error, or a missing ANTHROPIC_API_KEY, to a user message.
+
+    The spend-cap 429 is told apart from a rate limit: it has no retry-after and lasts until
+    the next month. A spend limit set in the Console returns a 400 and gets GENERIC.
+
+    Args:
+        exc: The SDK error raised by the Claude engine, or the ConfigError of a missing key.
+
+    Returns:
+        The message to show.
+    """
+    if isinstance(exc, anthropic.EnforcedSpendLimitReachedError):
+        _logger.warning("Claude spend cap reached: %s", exc.message)
+        return BUDGET_EXHAUSTED
+    if isinstance(exc, anthropic.RateLimitError):
+        _logger.warning("Claude rate limited: %s", exc.message)
+        return AI_BUSY
+    if isinstance(exc, anthropic.InternalServerError | anthropic.APIConnectionError):
+        _logger.error("Assistant unavailable: %s", exc)
+        return UNAVAILABLE
+    auth = anthropic.AuthenticationError | anthropic.PermissionDeniedError | anthropic.NotFoundError
+    if isinstance(exc, auth | ConfigError):
+        _logger.error("Claude misconfigured: %s", exc)
+        return MISCONFIGURED
+    _logger.exception("Unexpected Claude error", exc_info=exc)
     return GENERIC
 
 

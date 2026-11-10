@@ -1,27 +1,29 @@
 # Phase D — Secrets, Image and Cloud Run
 
-**Goal:** the three secrets in Secret Manager, the production image in Artifact Registry and a public Cloud Run service running it.
+**Goal:** the four secrets in Secret Manager, the production image in Artifact Registry and a public Cloud Run service running it.
 
 **Estimated time:** ~25–35 min on a normal connection.
 
 ## D1 — Secrets in Secret Manager (~5 min)
 
-The Gemini key and the Spotify Client Secret are read from `.env`; production gets a **new** Fernet key, generated inline. No value is printed.
+The Gemini key, the Spotify Client Secret and the Claude key are read from `.env`; production gets a **new** Fernet key, generated inline. No value is printed. Use a Claude key from a workspace with a spend limit set in the Claude Console (the default workspace cannot have one).
 
 ```bash
 grep '^GOOGLE_API_KEY=' .env | cut -d= -f2- | tr -d '"\r\n' | gcloud secrets create GOOGLE_API_KEY --data-file=- --project=YOUR_PROJECT_ID
 grep '^SPOTIFY_CLIENT_SECRET=' .env | cut -d= -f2- | tr -d '"\r\n' | gcloud secrets create SPOTIFY_CLIENT_SECRET --data-file=- --project=YOUR_PROJECT_ID
 .venv/bin/python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode(), end='')" | gcloud secrets create SESSION_ENCRYPTION_KEY --data-file=- --project=YOUR_PROJECT_ID
+grep '^ANTHROPIC_API_KEY=' .env | cut -d= -f2- | tr -d '"\r\n' | gcloud secrets create ANTHROPIC_API_KEY --data-file=- --project=YOUR_PROJECT_ID
 ```
 
 `tr` strips quotes and line endings, which would otherwise become part of the secret.
 
-Grant the runtime service account access to exactly these three secrets:
+Grant the runtime service account access to exactly these four secrets:
 ```bash
 terraform -chdir=terraform apply \
   -target=google_secret_manager_secret_iam_member.app_api_key \
   -target=google_secret_manager_secret_iam_member.app_spotify_client_secret \
   -target=google_secret_manager_secret_iam_member.app_session_encryption_key \
+  -target=google_secret_manager_secret_iam_member.app_anthropic_api_key \
   -var="project_id=YOUR_PROJECT_ID"
 ```
 
@@ -32,6 +34,7 @@ terraform -chdir=terraform apply \
 | `gcloud secrets versions access latest --secret=GOOGLE_API_KEY --project=YOUR_PROJECT_ID \| wc -c` | Same as `grep '^GOOGLE_API_KEY=' .env \| cut -d= -f2- \| tr -d '"\r\n' \| wc -c` |
 | `gcloud secrets versions access latest --secret=SPOTIFY_CLIENT_SECRET --project=YOUR_PROJECT_ID \| wc -c` | `32` |
 | `gcloud secrets versions access latest --secret=SESSION_ENCRYPTION_KEY --project=YOUR_PROJECT_ID \| wc -c` | `44` |
+| `gcloud secrets versions access latest --secret=ANTHROPIC_API_KEY --project=YOUR_PROJECT_ID \| wc -c` | Same as `grep '^ANTHROPIC_API_KEY=' .env \| cut -d= -f2- \| tr -d '"\r\n' \| wc -c` |
 
 Gemini API keys do not all share one length: classic `AIza…` keys have 39 characters, newer AI Studio keys are longer. Comparing with `.env` is the reliable check.
 
