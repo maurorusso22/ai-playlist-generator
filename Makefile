@@ -36,10 +36,17 @@ test:
 
 ## Run the AI evals against the live models and Spotify (slow, spends free-tier quota and Claude credit).
 ## Models compared and retry policy: config/evals.toml. Pick one suite with
-## EVAL=tests/evals/suites/test_gate_eval.py (or _conversation_ / _existence_).
-EVAL ?= tests/evals
+## EVAL=tests/evals/suites/test_gate_eval.py (or _conversation_ / _existence_), or one engine with
+## EVAL="tests/evals -k haiku" EVAL_NAME=haiku. The output is also saved to the git-ignored
+## tests/results/eval-<EVAL_NAME>-<timestamp>.log; pipefail keeps pytest's exit status.
+EVAL         ?= tests/evals
+EVAL_NAME    ?= full
+EVAL_RESULTS := tests/results
+EVAL_LOG     := $(EVAL_RESULTS)/eval-$(EVAL_NAME)-$(shell date +%Y%m%d-%H%M).log
 eval:
-	$(PYTHON) -m pytest $(EVAL) -v -rs
+	@mkdir -p $(EVAL_RESULTS)
+	@echo "Saving the eval output to $(EVAL_LOG)"
+	@bash -o pipefail -c '$(PYTHON) -m pytest $(EVAL) -v -rs 2>&1 | tee "$(EVAL_LOG)"'
 
 ## Build the Docker image locally
 docker-build:

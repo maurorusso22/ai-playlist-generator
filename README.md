@@ -377,10 +377,11 @@ ai-playlist-generator/
 ├── tests/
 │   ├── unit/                   # Offline tests (LLM, Spotify, Firestore mocked)
 │   ├── integration/            # Live Gemini, Spotify, Firestore, smoke tests
-│   └── evals/                  # AI quality evals on live models (make eval, never in CI)
-│       ├── datasets/           # YAML cases: gate messages, conversations, existence requests
-│       ├── harness/            # Model override, retries, deterministic checks, summary
-│       └── suites/             # Gate, conversation and Spotify-existence evals
+│   ├── evals/                  # AI quality evals on live models (make eval, never in CI)
+│   │   ├── datasets/           # YAML cases: gate messages, conversations, existence requests
+│   │   ├── harness/            # Model override, retries, deterministic checks, summary
+│   │   └── suites/             # Gate, conversation and Spotify-existence evals
+│   └── results/                # make eval logs, one per run — not committed
 ├── terraform/
 │   ├── main.tf                 # Firestore (+ TTL), IAM, secrets, Artifact Registry, Cloud Run, WIF
 │   ├── variables.tf
@@ -388,6 +389,7 @@ ai-playlist-generator/
 ├── docs/
 │   ├── deployment-00-overview.md … deployment-07-troubleshooting.md  # Deployment runbook, one file per phase
 │   ├── evals.md                # AI evals: method, metrics, rate limits, Spotify Terms
+│   ├── eval-results.md         # Recorded eval runs: Gemini vs Haiku vs Haiku with web search
 │   └── plan.md                 # Implementation plan — not committed
 └── .github/workflows/deploy.yml  # Test on PRs, test + deploy on push to main
 ```
@@ -538,7 +540,8 @@ make test-smoke
 # Run the Spotify de-risking spike (dev only, requires an allowlisted account)
 python -m scripts.spotify_spike
 
-# Run the AI evals on the live models (slow, spends free-tier quota and Claude credit; never in CI)
+# Run the AI evals on the live models (slow, spends free-tier quota and Claude credit; never in CI).
+# The output is also saved to tests/results/eval-<EVAL_NAME>-<timestamp>.log (git-ignored)
 make eval
 ```
 
